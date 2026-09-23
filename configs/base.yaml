@@ -1,0 +1,217 @@
+# base.yaml — konfiguracja bazowa market-edge-lab
+#
+# To NIE jest prerejestracja eksperymentu. Prerejestracje są osobnymi plikami
+# `configs/t0NN_*.yaml`, które ten plik dziedziczą i dokładają parametry
+# hipotezy. Tu żyje wyłącznie to, co wspólne dla całego laboratorium.
+#
+# Sekcje oznaczone `frozen: true` są zamrożone: ich zmiana unieważnia
+# dotychczasowe wyniki i wymaga nowego ADR-u w DECISIONS.md.
+
+meta:
+  project: "market-edge-lab"
+  config_version: 1
+
+  # ADR-004: licznik prób startuje od 7 — warianty sprawdzone przez
+  # market-quant na tym samym segmencie RESEARCH, na tych samych parach,
+  # w tej samej rodzinie hipotez. Harness dolicza do tej liczby.
+  inherited_trials: 7
+  max_trials_warning: 50
+
+# ---------------------------------------------------------------------------
+# Instrumenty
+# ---------------------------------------------------------------------------
+instruments:
+  frozen: true
+
+  # Kohorta odkrywcza. Jedyny zbiór, na którym wolno cokolwiek dobierać.
+  discovery:
+    - EURUSD
+    - GBPUSD
+    - USDJPY
+    - AUDUSD
+    - USDCAD
+    - EURJPY
+
+  # ADR-008: skład zamrożony TERAZ, przed jakimkolwiek wynikiem — wybór
+  # instrumentów replikacyjnych po zobaczeniu wyników jest selection bias.
+  # Dane NIE ISTNIEJĄ; replikacja jest odłożona, nie anulowana.
+  replication:
+    available: false
+    symbols: [XAUUSD, WTI, SPX500, DAX]
+
+  excluded:
+    CHF: "zerwanie pega EURCHF 2015-01-15 czyni serię niereprezentatywną"
+    GBPJPY: "kandydat na selection bias — wybrany za to, że ładnie trenduje"
+    exotics: "szeroki spread, ryzyko polityczne, słabe dane"
+
+# ---------------------------------------------------------------------------
+# Dane
+# ---------------------------------------------------------------------------
+data:
+  timezone: "UTC"                    # wszędzie, bez wyjątków
+  base_timeframe: "H1"
+  price_convention: "bid_ask_separate"
+  mid_price_allowed: false
+
+  # ADR-007: surowe ticki czytamy ze starego repozytorium w trybie TYLKO DO
+  # ODCZYTU. Świece budujemy do własnego data/. Ścieżka jest parametrem,
+  # nie stałą w kodzie — gdy dane się przeniosą, zmienia się tutaj.
+  tick_cache:
+    path: "../market-quant/data/raw/dukascopy"
+    mode: "read-only"
+    note: "11 GB, 6 par, 2015-2026. Nigdy nie zapisujemy do tej ścieżki."
+
+  # Granica świecy D1 jest konwencją, nie faktem — FX nie ma oficjalnego
+  # zamknięcia. Ponieważ atr_d1_14 wyznacza bariery i jednostkę R, konwencja
+  # wpływa na dystans stopu.
+  d1_boundary:
+    research: "00:00 UTC"
+    frozen: true
+
+    # Doba z mniej niż `min_h1_bars` barami H1 jest NIEPEŁNA i wypada
+    # z szeregu dziennego. Bez tego sesja niedzielna (3 bary) tworzy własny
+    # bar dzienny i zaniża atr_d1_14 o ~12% na wszystkich parach — czyli
+    # zaniża jednostkę R, czyli wszystko. Próg z pomiaru zakresów dobowych.
+    min_h1_bars: 12
+
+  # ADR-004 — trzy segmenty. Pieczęci pilnuje loader, nie brak plików:
+  # ticki dla lat zapieczętowanych LEŻĄ na dysku.
+  splits:
+    frozen: true
+    research:
+      start: "2015-01-01"
+      end: "2021-12-31"
+      access: "swobodny"
+      warning: "OGLĄDANY WCZEŚNIEJ przez 7 prób market-quant"
+    oos:
+      start: "2022-01-01"
+      end: "2023-12-31"
+      access: "ograniczone uruchomienia, każde logowane"
+    sealed_holdout:
+      start: "2024-01-01"
+      end: "2026-12-31"
+      access: "ZERO. Otwierany raz, w fazie końcowej walidacji"
+      note: "Nietknięty również przez market-quant — zachowuje pełną wartość dowodową"
+
+  # Rok rozgrzewki cech: dane są czytane, decyzje nie zapadają.
+  warmup_year: 2015
+  first_decision: "2016-01-01"
+
+  quality:
+    max_gap_pct_per_symbol: 0.05     # próg dla M01
+    min_ticks_per_bar: 1
+
+    # Godziny, w których detektor wykrywa brak ticków u WSZYSTKICH par naraz.
+    # To jest własność danych, nie hipotezy, więc przenosimy je razem z dowodami
+    # zamiast odkrywać od nowa. Detektor NIE jest osłabiany — każda z tych
+    # godzin nadal jest wykrywana, akceptacja jest jawna i imienna.
+    #
+    # STATUS: ODZIEDZICZONE po market-quant, DO POTWIERDZENIA w M01.
+    # Nasz raport jakości ma wskazać dokładnie te trzy i żadnej innej.
+    # Rozbieżność = sygnał, że dane albo detektor się zmieniły.
+    accepted_outages:
+      - hour_utc: "2016-09-02T18:00:00+00:00"
+        reason: "awaria feedu Dukascopy wewnatrz dnia handlowego, ~1-2 h"
+        evidence: "17:00 = 4,5-8,9 kB (zapadniete ~10x), 18:00 = 0 na 6 parach,
+                   19:00 = 20-40 kB; 1 bar H1 z 43 634 na pare"
+        accepted_on: "2026-09-21"
+      - hour_utc: "2017-12-24T22:00:00+00:00"
+        reason: "opoznione otwarcie tygodnia (Wigilia) — rynek stal, nie awaria"
+        evidence: "caly blok 18:00-22:00 = 0 na 6 parach, dane wracaja o 23:00
+                   (0,5-1,7 kB); brak barow w kazdym zrodle"
+        accepted_on: "2026-09-21"
+      - hour_utc: "2019-05-26T22:00:00+00:00"
+        reason: "opoznione otwarcie tygodnia — poniedzialek 27.05.2019 to
+                 Memorial Day i UK spring bank holiday"
+        evidence: "blok 18:00-22:00 = 0 na 6 parach, 23:00 = 0-53 B,
+                   00:00 = 6-34 kB"
+        accepted_on: "2026-09-21"
+
+# ---------------------------------------------------------------------------
+# Koszty — model broker-agnostyczny
+# ---------------------------------------------------------------------------
+costs:
+  # Edge, który przeżywa tylko u brokera o najwęższym spreadzie, nie jest
+  # edge'em tylko artefaktem zaokrąglenia. Niezależność od brokera zapewnia
+  # ZAPAS KOSZTOWY, nie pominięcie kosztów.
+  broker_agnostic: true
+  frozen: true
+
+  spread:
+    source: "rzeczywiste ticki bid/ask w momencie fillu"
+    use_average_spread: false
+    use_mid: false
+
+  # Surowy spread Dukascopy jest węższy niż u typowego brokera detalicznego.
+  # Efektywny koszt = max(spread_tickowy + prowizja, podłoga).
+  min_roundturn_cost_pips:
+    fx_majors: 1.5
+    fx_crosses: 2.5
+
+  commission: "wliczona w podłogę kosztu — nie modelowana osobno"
+  slippage_entry_x_spread: 0.5
+  slippage_stop_x_spread: 1.0        # asymetryczne — stop realizuje się w ruchu
+  slippage_tp: 0.0
+  tp_fill_requires_full_cross: true
+
+  # Marża swapu jest jedyną liczbą modelu bez sparsowanego źródła.
+  # Wynik zależny od wartości punktowej jest nieważny — stąd oś, nie punkt.
+  swap:
+    margin_sensitivity: [0.005, 0.01, 0.02]
+    triple_on_wednesday: true
+
+  # Raportowanie obowiązkowe przy każdym wyniku.
+  report_multipliers: [1, 2, 3]
+
+# ---------------------------------------------------------------------------
+# Skale zmienności — dwie, rozłączne
+# ---------------------------------------------------------------------------
+# Mylenie ich degeneruje etykiety do szumu mikrostruktury.
+volatility:
+  frozen: true
+  atr_period: 14
+  feature_normalizer: "atr_h1_14"    # WYŁĄCZNIE normalizacja cech
+  barrier_scaler: "atr_d1_14"        # WYŁĄCZNIE bariery i jednostka R
+  vol_pct_min_days: 252
+
+# ---------------------------------------------------------------------------
+# Walidacja
+# ---------------------------------------------------------------------------
+validation:
+  frozen: true
+
+  bootstrap:
+    method: "block_bootstrap_by_day"
+    block_days: 20
+    reps: 10000
+    note: "jednostką jest DZIEŃ, nie transakcja — nakładanie okien wynikowych"
+
+  random_control:
+    reps: 200
+    seed: 0
+    preserves: ["instrument", "okres", "godziny", "SL", "TP", "koszty",
+                "sizing", "execution", "liczba obserwacji"]
+    varies: ["timing wejścia", "kierunek"]
+
+  # Godziny: baseline operacyjny, NIE założenie o optymalności.
+  # Oba warianty prerejestrowane, oba raportowane.
+  sessions:
+    primary: {start: "08:00", end: "22:00", tz: "UTC"}
+    secondary: "wszystkie godziny"
+
+  report_axes: [instrument, year, direction, vol_regime, session]
+
+# ---------------------------------------------------------------------------
+# Zakazy twarde
+# ---------------------------------------------------------------------------
+forbidden:
+  frozen: true
+  llm_generated_backtest_inputs: true   # parametric look-ahead, nienaprawialny
+  mid_price: true
+  optimistic_barrier_order: true
+  unlogged_trials: true
+  risk_layer_inside_hypothesis_test: true   # ADR-002 — decyzja centralna
+
+  # Niepriorytetowe w fazie 1. Powrót wymaga uzasadnienia z wyników.
+  deprioritized: [RSI, MACD, ADX, Stochastic, Bollinger, SMC, BOS, CHoCH,
+                  HMM, xgboost, lightgbm, pyramiding, fractional_kelly]

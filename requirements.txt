@@ -1,0 +1,26 @@
+# Wersje przypięte dokładnie — na tych przechodzi zestaw testów.
+#
+# Odtworzenie środowiska:
+#     python3 -m venv .venv
+#     .venv/bin/pip install -r requirements.txt
+#     .venv/bin/python -m pytest tests/ -q
+#
+# Zasada: pakiet trafia tu dopiero wtedy, gdy kod faktycznie go importuje.
+# Instalowanie "na zapas" daje nieprzetestowane wersje w pliku, który ma
+# gwarantować odtwarzalność.
+
+# --- Dane i obliczenia ---
+polars==1.44.2          # ramki danych; szybszy od pandas na tickach
+pyarrow==25.0.1         # Parquet
+numpy==2.5.3            # dekodowanie .bi5, operacje wektorowe
+
+# --- Sieć i konfiguracja ---
+requests==2.34.2        # pobieranie z Dukascopy
+PyYAML==6.0.3           # configs/*.yaml
+
+# --- Testy ---
+pytest==9.1.1
+
+# --- Do dołożenia, gdy będą potrzebne ---
+# scipy                 # testy istotności                    (M02, M03)
+# matplotlib            # wykresy do raportów
