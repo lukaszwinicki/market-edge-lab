@@ -107,9 +107,15 @@ zwraca.
 
 ## Git
 
-Gałąź główna: `main`. Commity po angielsku, sam temat, bez body — chyba że
-„dlaczego" nie widać z diffa. Prefiksy: `docs:` `feat:` `fix:` `test:` `chore:`
-`config:`. Przed commitem `git add -A --dry-run`. Dane nigdy nie wchodzą do gita.
+Gałąź główna: `main`.
+
+**Commit to jedno zdanie po angielsku — sam temat, bez body.** Body wolno dodać
+wyłącznie przy dużej potrzebie, gdy „dlaczego" jest nieodgadywalne z diffa;
+w razie wątpliwości body odpada. **Żadnych stopek atrybucyjnych** — ani
+`Co-Authored-By`, ani innych.
+
+Prefiksy: `docs:` `feat:` `fix:` `test:` `chore:` `config:`.
+Przed commitem `git add -A --dry-run`. Dane nigdy nie wchodzą do gita.
 
 ## Token-efficient workflow
 
