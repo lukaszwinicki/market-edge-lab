@@ -220,3 +220,49 @@ def test_src_risk_does_not_exist_in_phase_1():
     """ADR-002 wymuszony architekturą: nie da się splątać warstwy, której nie ma."""
     assert not (ROOT / "src" / "risk").exists(), \
         "src/risk/ nie powstaje w fazie 1 — patrz ADR-002"
+
+
+# --- odcisk zbioru ticków ---------------------------------------------------
+
+def _bi5(root: Path, symbol: str, year: int, month: int, day: int, hour: int,
+         payload: bytes) -> None:
+    d = root / symbol / f"{year:04d}" / f"{month:02d}" / f"{day:02d}"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{hour:02d}h_ticks.bi5").write_bytes(payload)
+
+
+def test_fingerprint_is_deterministic_and_counts_only_nonempty(tmp_path):
+    from src.data.provenance import cache_fingerprint
+    _bi5(tmp_path, "EURUSD", 2015, 1, 5, 9, b"abc")
+    _bi5(tmp_path, "EURUSD", 2015, 1, 5, 10, b"")          # godzina bez handlu
+    _bi5(tmp_path, "GBPUSD", 2015, 1, 5, 9, b"de")
+
+    a = cache_fingerprint(tmp_path, ["EURUSD", "GBPUSD"])
+    b = cache_fingerprint(tmp_path, ["GBPUSD", "EURUSD"])  # inna kolejność wejścia
+    assert a["sha256"] == b["sha256"], "odcisk nie może zależeć od kolejności"
+    assert a["n_files"] == 2, "pliki zerobajtowe nie wchodzą do odcisku"
+    assert a["n_bytes"] == 5
+
+
+def test_fingerprint_changes_when_data_changes(tmp_path):
+    """Podmiana danych pod przebiegiem ma być wykrywalna."""
+    from src.data.provenance import cache_fingerprint
+    _bi5(tmp_path, "EURUSD", 2015, 1, 5, 9, b"abc")
+    before = cache_fingerprint(tmp_path, ["EURUSD"])["sha256"]
+
+    _bi5(tmp_path, "EURUSD", 2015, 1, 5, 9, b"abcd")       # ten sam plik, inny rozmiar
+    assert cache_fingerprint(tmp_path, ["EURUSD"])["sha256"] != before
+
+    _bi5(tmp_path, "EURUSD", 2015, 1, 6, 9, b"xy")         # dobudowana godzina
+    assert cache_fingerprint(tmp_path, ["EURUSD"])["n_files"] == 2
+
+
+def test_fingerprint_respects_year_filter(tmp_path):
+    """Odcisk segmentu badawczego nie może zmieniać się od lat zapieczętowanych."""
+    from src.data.provenance import cache_fingerprint
+    _bi5(tmp_path, "EURUSD", 2021, 1, 5, 9, b"abc")
+    _bi5(tmp_path, "EURUSD", 2024, 1, 5, 9, b"sealed")
+
+    research = cache_fingerprint(tmp_path, ["EURUSD"], years=range(2015, 2024))
+    assert research["n_files"] == 1
+    assert research["n_bytes"] == 3
