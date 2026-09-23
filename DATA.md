@@ -12,9 +12,15 @@ Każdą liczbę w tym pliku sprawdzać komendą, nie brać na wiarę.
 | Ścieżka | `../market-quant/data/raw/dukascopy` — **READ-ONLY** (ADR-007) |
 | Instrumenty | EURUSD, GBPUSD, USDJPY, AUDUSD, USDCAD, EURJPY |
 | Zakres | **2015 → 2026**, kompletny |
-| Rozmiar | ~11 GB (1,3–2,4 GB na parę) |
+| Rozmiar | ~11 GB całość; **6,99 GiB** w segmentach RESEARCH + OOS |
 | Strefa czasowa | UTC wszędzie, bez wyjątków |
-| Hash zbioru | `UNKNOWN` — do policzenia przy przeniesieniu pipeline'u. Bez niego nie wykryjemy podmiany danych pod przebiegiem |
+| **Odcisk 2015–2023** | `sha256 = 6b6b3aa4…a63a0`, **336 561** niepustych plików. Pełny zapis: `reports/tick_fingerprint.json` |
+
+Odcisk liczony z metadanych (ścieżka + rozmiar), nie z zawartości: na podmianę,
+przycięcie i dobudowanie plików metadane reagują tak samo, a przepuszczenie 11 GB
+przez SHA-256 kosztowałoby kilka minut przy każdym uruchomieniu. Odcisk ma
+wykrywać **zmianę zbioru**, nie bronić przed spreparowaniem go bajt po bajcie.
+Liczony osobno dla lat 2015–2023, żeby nie zmieniał się od lat zapieczętowanych.
 
 **Zasady twarde.** Bid i ask przechowywane osobno; cena mid nie występuje
 nigdzie w systemie. Luki > 60 s w godzinach handlowych zliczane i raportowane.
@@ -29,12 +35,33 @@ Budujemy do własnego `data/` tego projektu — nie do starego repo.
 |---|---|
 | Pipeline | tick → M1 → H1, resampling własny |
 | Format | Parquet, partycjonowany po `(instrument, rok)` |
-| Zbudowane w tym projekcie | **nic** — faza 1 nie rozpoczęta |
+| Zbudowane (M01, 2026-09-23) | **2015–2023**, 6 par, 108 partycji, 433 MB |
+| Zakres barów | 2015-01-01 → 2023-12-29 |
+| Raport jakości | `reports/data_quality.md` — **PRZECHODZI** |
 
-Jakość osiągnięta przez `market-quant` na tym samym źródle (punkt odniesienia,
-nie nasz pomiar): luki **0,01% na parę** dla 2015–2021, 43 6xx barów H1 na parę.
-Mediana spreadu: EURUSD 0,3 pipsa · USDJPY 0,3 · EURJPY 0,6 · GBPUSD 0,9 ·
-AUDUSD 1,0 · USDCAD 1,1.
+**Weryfikacja przeniesienia (`FACT`).** Te same ticki przez przeniesiony
+pipeline dają ramki **identyczne co do bitu** z tymi, które wyprodukował
+`market-quant` — sprawdzone na EURUSD 2015, M1 (372 942 bary) i H1 (6 226).
+To mocniejszy dowód poprawności portu niż komplet przechodzących testów.
+
+**Pokrycie zmierzone u nas:**
+
+| Symbol | Bary H1 | Brakujące | Luki % |
+|---|---|---|---|
+| EURUSD | 56 096 | 4 | 0,01 |
+| AUDUSD · EURJPY · USDJPY | 56 094 | 6 | 0,01 |
+| USDCAD | 56 092 | 7 | 0,01 |
+| GBPUSD | 56 091 | 9 | 0,02 |
+
+Mediana spreadu (pipsy): EURUSD 0,3 · USDJPY 0,4 · EURJPY 0,7 ·
+AUDUSD 1,0 · GBPUSD 1,0 · USDCAD 1,1.
+
+**Godziny bez ticków u wszystkich par naraz: 4, wszystkie wyjaśnione.**
+Trzy odziedziczone po `market-quant` potwierdzone naszym przebiegiem; czwarta
+(`2023-12-24 22:00`) wykryta tutaj, w segmencie OOS, którego tamten projekt
+nigdy nie zbudował — ADR-010. Lista akceptacji jest **zamknięta i imienna**,
+każda pozycja niesie dowód, a detektor nie został osłabiony. Pilnuje tego
+`test_config_accepts_exactly_the_four_audited_hours`.
 
 ## 3. Podział segmentów (ADR-004)
 

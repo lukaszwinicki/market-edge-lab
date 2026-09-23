@@ -1,0 +1,35 @@
+{
+  "sha256": "6b6b3aa46ac9e4e60e85475e0eb832a8702805ed1dd03e043792debdda4a63a0",
+  "n_files": 336561,
+  "n_bytes": 7510336846,
+  "per_symbol": {
+    "AUDUSD": {
+      "n_files": 56094,
+      "n_bytes": 934839436
+    },
+    "EURJPY": {
+      "n_files": 56094,
+      "n_bytes": 1799912189
+    },
+    "EURUSD": {
+      "n_files": 56096,
+      "n_bytes": 1328840027
+    },
+    "GBPUSD": {
+      "n_files": 56091,
+      "n_bytes": 1250590463
+    },
+    "USDCAD": {
+      "n_files": 56092,
+      "n_bytes": 988783239
+    },
+    "USDJPY": {
+      "n_files": 56094,
+      "n_bytes": 1207371492
+    }
+  },
+  "years": [
+    2015,
+    2023
+  ]
+}

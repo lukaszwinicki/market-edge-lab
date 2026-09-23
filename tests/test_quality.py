@@ -274,8 +274,15 @@ def test_missing_accept_list_accepts_nothing():
     assert not rep.passes_gate_0(accepted=accepted_outages_from({}))[0]
 
 
-def test_config_accepts_exactly_the_three_audited_hours():
-    """Pozycje z ADR-045 muszą odpowiadać temu, co wskazał detektor na 2015-2021."""
+def test_config_accepts_exactly_the_four_audited_hours():
+    """Lista akceptacji jest ZAMKNIĘTA i imienna — nie wolno jej rozszerzać,
+    żeby raport przestał protestować.
+
+    Trzy pierwsze pozycje są odziedziczone po market-quant i potwierdzone
+    naszym własnym przebiegiem na 2015-2021. Czwarta została wykryta tutaj,
+    w segmencie OOS 2022-2023, którego tamten projekt nigdy nie zbudował
+    (ADR-010).
+    """
     import yaml
     cfg = yaml.safe_load((ROOT / "configs" / "base.yaml").read_text())
     got = {a.ts for a in accepted_outages_from(cfg)}
@@ -283,9 +290,14 @@ def test_config_accepts_exactly_the_three_audited_hours():
         dt.datetime(2016, 9, 2, 18, tzinfo=UTC),
         dt.datetime(2017, 12, 24, 22, tzinfo=UTC),
         dt.datetime(2019, 5, 26, 22, tzinfo=UTC),
+        dt.datetime(2023, 12, 24, 22, tzinfo=UTC),
     }
+    # Każda pozycja musi nieść dowód i datę — akceptacja bez dowodu to
+    # wyciszenie detektora pod inną nazwą.
     for a in accepted_outages_from(cfg):
-        assert a.evidence.strip() and a.reason.strip() and a.accepted_on == "2026-09-21"
+        assert a.evidence.strip(), f"{a.ts}: akceptacja bez dowodu"
+        assert a.reason.strip(), f"{a.ts}: akceptacja bez powodu"
+        assert a.accepted_on in {"2026-09-21", "2026-09-23"}
 
 
 # --- Renderowanie -----------------------------------------------------------

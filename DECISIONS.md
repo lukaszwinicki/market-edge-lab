@@ -325,3 +325,54 @@ wykonalność ekonomiczną: mniejszy stop oznacza wyższy koszt w jednostkach R
 (rzędu 0,023 R zamiast 0,012 R na transakcję) przy ~3× większej częstotliwości.
 Dlatego oba horyzonty są prerejestrowane i oba raportowane — wybór jednego
 z góry byłby założeniem, nie wynikiem.
+
+---
+
+## ADR-010 — Akceptacja godziny 2023-12-24 22:00 jako zamknięcia rynku, nie awarii feedu
+
+**Status:** ACCEPTED · 2026-09-23 · **Wykryte w:** M01
+
+**Decyzja.** Godzina `2023-12-24T22:00Z` trafia na zamkniętą listę
+`data.quality.accepted_outages` wraz z dowodem. Detektor **nie jest
+osłabiany** — nadal ją wykrywa, a raport jakości drukuje ją razem
+z uzasadnieniem.
+
+**Kontekst.** Raport jakości M01 zgłosił `NIE PRZECHODZI`: jedna godzina bez
+ticków u wszystkich sześciu par naraz, w dniu, który wyprowadzony kalendarz
+uznaje za handlowy. Trzy godziny odziedziczone po `market-quant` zostały
+potwierdzone naszym własnym przebiegiem. Czwarta leży w segmencie OOS
+2022-2023, którego tamten projekt nigdy nie zbudował — dlatego jej nie znał.
+
+**Dowód (`FACT`, odczytany z rozmiarów plików cache):**
+
+| Obserwacja | Wartość |
+|---|---|
+| 2023-12-24 | **niedziela** — Wigilia w dniu otwarcia tygodnia FX |
+| Blok 17:00–22:00 | 0 B na wszystkich 6 parach |
+| Pliki `.bi5` dla tych godzin | **istnieją i są puste** — downloader sprawdził i nie znalazł ticków |
+| 23:00 | 34–468 B, handel śladowy |
+| 25.12 00:00 | 380–1 902 B |
+| Normalne obroty | dopiero 26.12 (5–18 kB) |
+| Piątek 22.12 22:00 | 0 B na 6 parach — zwykłe zamknięcie tygodnia |
+
+**Wniosek (`INFERENCE`).** Rynek stał, feed nie padł. To ten sam wzorzec co
+odziedziczona pozycja `2017-12-24T22:00Z`: Wigilia wypadająca w niedzielę
+opóźnia otwarcie tygodnia. Rozróżnienie opiera się na tym, że pliki istnieją
+i są puste — nieudane pobranie zostawia brak pliku, nie plik zerobajtowy.
+
+**Alternatywy.** (a) Poszerzyć kalendarz świąt o regułę „Wigilia w niedzielę"
+— odrzucone: dokładanie logiki na podstawie jednej obserwacji, a kalendarz
+jest celowo minimalny, żeby każdy inny brak danych pozostał podejrzany.
+(b) Wyłączyć detektor dla grudnia — odrzucone: to wyciszenie, nie decyzja.
+(c) Zostawić bramkę jako niezdaną — odrzucone: raport zgłaszałby znany,
+wyjaśniony stan i z czasem przestałby cokolwiek znaczyć.
+
+**Konsekwencje.** Lista akceptacji jest zamknięta i imienna; test
+`test_config_accepts_exactly_the_four_audited_hours` pilnuje, żeby nie dało
+się jej rozszerzyć w celu uciszenia raportu. Każda pozycja musi nieść dowód
+i datę — akceptacja bez dowodu jest wyciszeniem detektora pod inną nazwą.
+
+**Do zapamiętania przy odpieczętowaniu segmentu 2024-2026.** Dane z tamtych
+lat nie przeszły jeszcze przez detektor. Wigilia wypada w niedzielę także
+w 2028 r.; w samym segmencie zapieczętowanym należy spodziewać się własnych,
+jeszcze nieznanych pozycji. Każda wymaga tego samego trybu: dowód, ADR, wpis.

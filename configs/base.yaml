@@ -127,6 +127,19 @@ data:
                    00:00 = 6-34 kB"
         accepted_on: "2026-09-21"
 
+      # WYKRYTE W TYM PROJEKCIE (ADR-010), w segmencie OOS 2022-2023, ktorego
+      # market-quant nigdy nie zbudowal. Ten sam wzorzec co 2017-12-24:
+      # Wigilia wypadajaca w NIEDZIELE opoznia otwarcie tygodnia FX.
+      - hour_utc: "2023-12-24T22:00:00+00:00"
+        reason: "opoznione otwarcie tygodnia — Wigilia 24.12.2023 wypadla
+                 w niedziele, rynek stal; nie awaria feedu"
+        evidence: "blok 17:00-22:00 = 0 B na 6 parach, pliki ISTNIEJA i sa
+                   puste (downloader sprawdzil, nie zawiodl); 23:00 = 34-468 B
+                   (handel sladowy), 25.12 00:00 = 380-1902 B, normalne obroty
+                   dopiero 26.12 (5-18 kB). Piatek 22.12 22:00 = 0 na 6 parach,
+                   czyli zwykle zamkniecie tygodnia"
+        accepted_on: "2026-09-23"
+
 # ---------------------------------------------------------------------------
 # Koszty — model broker-agnostyczny
 # ---------------------------------------------------------------------------

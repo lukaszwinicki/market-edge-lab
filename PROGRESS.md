@@ -58,13 +58,51 @@ nie nowe mechanizmy (ADR-006).
 
 ---
 
+## M01 — ZAMKNIĘTY, PRZECHODZI (2026-09-23)
+
+Aparatura przeniesiona, zweryfikowana i uruchomiona. Świece zbudowane.
+**Żaden backtest nadal nie został uruchomiony.**
+
+**Weryfikacja przeniesienia — najważniejszy wynik M01 (`FACT`).** Te same
+ticki przez przeniesiony pipeline dają ramki **identyczne co do bitu**
+z tymi, które wyprodukował `market-quant` (EURUSD 2015: M1 372 942 bary,
+H1 6 226). To mocniejszy dowód niż komplet przechodzących testów — port
+niczego nie zmienił, ani w dekoderze, ani w resamplingu.
+
+| Element | Stan |
+|---|---|
+| Przeniesiono | 11 modułów, ~2 350 linii — `data`, `execution/simulator`, `harness`, statystyka |
+| Testy | **173 przechodzą**: 149 przeniesionych + 24 własne na nasze zmiany |
+| Świece | 2015–2023, 6 par, 108 partycji, 433 MB |
+| Raport jakości | `reports/data_quality.md` — **PRZECHODZI**, luki 0,01–0,02% na parę |
+| Odcisk danych | `sha256 = 6b6b3aa4…`, 336 561 plików — `UNKNOWN` z `DATA.md` domknięty |
+| Pieczęć 2024–2026 | Działa w loaderze + strażnik w skrypcie budowy |
+
+**Co M01 wykrył, czego poprzednik nie mógł.** Raport zgłosił najpierw
+`NIE PRZECHODZI`: godzina `2023-12-24 22:00` bez ticków u wszystkich sześciu
+par. Leży w segmencie OOS, którego `market-quant` nigdy nie zbudował.
+Dowód z rozmiarów plików cache pokazał zamknięcie rynku, nie awarię feedu —
+Wigilia wypadła w niedzielę, ten sam wzorzec co odziedziczona godzina z 2017 r.
+Zaakceptowana jawnie, z dowodem, bez osłabiania detektora: **ADR-010**.
+
+Trzy godziny odziedziczone po `market-quant` zostały potwierdzone naszym
+własnym przebiegiem — detektor wskazał dokładnie je i żadnej innej.
+
+**Dług zaciągnięty świadomie.** Warstwa etykiet (`triple_barrier.py`) niesie
+treść hipotezy i nie została przeniesiona. Razem z nią odpadły **dwa testy
+na brak podglądania przyszłości przez symulator**. Ślad imienny jest
+w `tests/test_harness.py`. **Muszą wrócić przed T001** — to warunek, nie
+drobiazg.
+
+---
+
 ## Gdzie jesteśmy
 
-**Faza 1 nie rozpoczęta.** Repozytorium zawiera wyłącznie dokumentację.
-Kod nie został jeszcze przeniesiony, świece nie zbudowane.
+**Faza 1 w toku.** M01 zamknięty. Następny krok: M02.
 
-**Licznik prób: N = 7** (odziedziczone po `market-quant`, ADR-004).
-Uruchomionych w tym projekcie: **0**.
+**Licznik prób: N = 7** (odziedziczone, ADR-004). Uruchomionych prób
+strategii w tym projekcie: **0**. M01 był krokiem infrastrukturalnym
+i nie liczy się do N.
 
 ---
 
@@ -72,13 +110,16 @@ Uruchomionych w tym projekcie: **0**.
 
 | # | Krok | Rozstrzyga |
 |---|---|---|
-| 1 | **M01** — przeniesienie aparatury, budowa świec 2015–2023, pełen zestaw testów, własny raport jakości | Czy przyrząd działa tutaj |
+| ~~1~~ | ~~**M01** — przeniesienie aparatury, świece, testy, raport jakości~~ | **ZAMKNIĘTY, PRZECHODZI** |
 | 2 | **M02** — audyt mocy | **Czy T001 ma w ogóle sens.** Bramka: przy wykrywalnej przewadze ≥0,08 R T001 nie startuje |
 | 3 | **M03** — kalibracja kontrolą losową | Czy wynikowi negatywnemu będzie można wierzyć |
 | 4 | **M04** — domknięcie kontroli przesuniętych cech | Otwarte `UNKNOWN` po poprzedniku |
 | 5 | **T001** — H01 momentum, pomiar na wszystkich barach | Pytanie, na które `market-quant` nie miał mocy odpowiedzieć |
 
 Kroki M są kontrolami aparatury i **nie liczą się** do N w DSR.
+
+**Przed T001 trzeba dodatkowo:** zbudować warstwę etykiet od nowa (bez
+treści hipotezy w module) i przywrócić dwa testy na brak look-ahead.
 
 ---
 

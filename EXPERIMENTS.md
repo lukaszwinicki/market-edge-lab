@@ -15,7 +15,7 @@ projekcie: **0**.
 
 | ID | Hipoteza | Status | Wynik | Decyzja |
 |---|---|---|---|---|
-| M01 | — | `PLANNED` | — | — |
+| M01 | — | `CLOSED` | **PRZECHODZI** — port identyczny co do bitu, 173 testy, raport jakości zdany | KEEP |
 | M02 | — | `PLANNED` | — | — |
 | M03 | — | `PLANNED` | — | — |
 | M04 | — | `PLANNED` | — | — |
@@ -24,7 +24,7 @@ projekcie: **0**.
 
 ---
 
-## M01 — Przeniesienie i weryfikacja aparatury
+## M01 — Przeniesienie i weryfikacja aparatury · `CLOSED` · **PRZECHODZI**
 
 **Cel.** Przenieść kod pomiarowy z `market-quant` (ADR-005), zbudować świece
 M1/H1 dla segmentów RESEARCH i OOS, uruchomić pełen zestaw testów w tym
@@ -35,6 +35,43 @@ loader rzuca wyjątkiem przy próbie sięgnięcia do segmentu zapieczętowanego.
 
 **Dlaczego pierwsze.** Przeniesiony kod nie dziedziczy zaufania. Bez działającej
 aparatury każdy dalszy wynik jest bezwartościowy.
+
+### Wynik (2026-09-23)
+
+| Kryterium | Wynik |
+|---|---|
+| Testy przechodzą | ✅ **173** — 149 przeniesionych + 24 własne |
+| Luki ≤ 0,05% na parę | ✅ 0,01–0,02% (4–9 barów z 56 100) |
+| Pieczęć działa | ✅ loader + strażnik w skrypcie budowy |
+| Raport jakości | ✅ **PRZECHODZI** |
+
+**Weryfikacja ponad kryterium.** Te same ticki przez przeniesiony pipeline
+dają ramki **identyczne co do bitu** z oryginałem (EURUSD 2015, M1 i H1,
+wszystkie 12 kolumn). Port niczego nie zmienił.
+
+**Zbudowano:** 2015–2023, 6 par, 108 partycji, 433 MB.
+**Odcisk danych:** `sha256 = 6b6b3aa4…a63a0`, 336 561 niepustych plików.
+
+### Co wyszło po drodze
+
+Raport zgłosił najpierw `NIE PRZECHODZI` — jedna nierozstrzygnięta godzina
+bez ticków u wszystkich par: `2023-12-24 22:00`, w segmencie OOS, którego
+`market-quant` nigdy nie zbudował. Dowód z rozmiarów plików cache pokazał
+zamknięcie rynku (Wigilia w niedzielę), nie awarię feedu. Zaakceptowana
+jawnie z dowodem, detektor nietknięty → **ADR-010**.
+
+Trzy godziny odziedziczone po poprzedniku potwierdzone naszym przebiegiem:
+detektor wskazał dokładnie je i żadnej innej.
+
+### Dług — do spłaty przed T001
+
+Warstwa etykiet nie została przeniesiona (niesie treść hipotezy), a razem
+z nią odpadły **dwa testy na brak podglądania przyszłości przez symulator**:
+`test_simulator_sees_only_the_trade_window` i
+`test_windowed_labels_match_simulation_on_full_history`. Ślad imienny
+w `tests/test_harness.py`. **Warunek startu T001.**
+
+**Decyzja: KEEP.** Aparatura działa i jest zweryfikowana. Przechodzimy do M02.
 
 ---
 
