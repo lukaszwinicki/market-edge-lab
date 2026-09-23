@@ -10,99 +10,83 @@ Każdą liczbę sprawdzać komendą, nie brać na wiarę.
 
 ---
 
-## Faza 0 — ZAMKNIĘTA (2026-09-23)
+## Faza 0 i M01 — ZAMKNIĘTE (2026-09-23)
 
-Audyt poprzednika, architektura, rejestr hipotez, prerejestracja pierwszego
-eksperymentu. **Żaden backtest nie został uruchomiony** — zgodnie z zasadą, że
-faza 0 kończy się na prerejestracji.
+Pełny zapis: `EXPERIMENTS.md` (M01) i `DECISIONS.md` (ADR-001…010). Tutaj
+tylko to, co trzeba mieć w głowie na starcie sesji.
 
-### Co ustalił audyt `market-quant`
+**Faza 0.** Audyt `market-quant`, architektura, rejestr hipotez, prerejestracja
+T001. `INFERENCE` z audytu (ADR-001): poprzednik sfalsyfikował **regułę handlową
+wraz z warstwą zarządzania kapitałem**, nie mechanizm momentum — z 64 342
+sygnałów w transakcję weszło 889, a obserwacji efektywnych zostało **172**.
+Stąd ADR-002: pomiar informacji oddzielony od symulacji strategii, wymuszony
+architekturą (brak `src/risk/` w fazie 1).
 
-Tamten projekt zamknął się 2026-09-22 odrzuceniem swojej hipotezy i zrobił to
-uczciwie: bramki kalibracyjne przeszły, więc wynikowi można wierzyć. **Ale
-zakres tego wniosku jest węższy, niż wyglądał** (ADR-001):
+**M01 — PRZECHODZI.** Te same ticki przez przeniesiony pipeline dają ramki
+**identyczne co do bitu** z `market-quant` (EURUSD 2015). Świece 2015–2023,
+6 par, 433 MB; raport jakości zdany; odcisk danych `sha256 = 6b6b3aa4…`;
+pieczęć 2024–2026 działa. Godzina `2023-12-24 22:00` zaakceptowana jawnie
+z dowodem, bez osłabiania detektora (ADR-010).
 
-| `FACT` | Liczba |
-|---|---|
-| Sygnał wystąpił na barach | 64 342 (28,7% z 224 420 decyzji) |
-| Weszło w transakcję | 889 (1,4% sygnałów) |
-| Obserwacji efektywnych | **172** (nakładanie 95,9%) |
-| Połowa CI expectancy | 0,067 R |
-| Wykrywalna przewaga | wyłącznie ≥0,10 R |
-
-Resztę wyciął silnik ryzyka i portfela: limity ekspozycji walutowej (39 729
-barów), otwarta pozycja na parze (10 815), limit portfela (8 854). O tym, który
-sygnał stanie się transakcją, decydowała **historia poprzednich transakcji**,
-a nie treść hipotezy.
-
-`INFERENCE`: sfalsyfikowano **regułę handlową wraz z warstwą zarządzania
-kapitałem**, a nie mechanizmy momentum ani wybicia. Bramka 3, która miała
-zmierzyć komponenty osobno, nigdy nie została uruchomiona. A to, co nazwano
-wybiciem, odpalało z definicji na ~20% barów — czyli było stanem, nie
-zdarzeniem.
-
-### Decyzje założycielskie
-
-ADR-001…009 w `DECISIONS.md`. Najważniejsza: **ADR-002** — pomiar informacji
-oddzielony od symulacji strategii, wymuszony architekturą (brak `src/risk/`
-w fazie 1).
-
-### Rejestr hipotez
-
-H01 `PREREGISTERED` · H02 `PROPOSED` (zdegradowana, podejrzenie redundancji) ·
-H03 `PREREGISTERED` jako warunkowanie · H04 `PROPOSED` (blokada danych) ·
-H05 `DEFERRED` · H06 `DEFERRED` · H07 `EXPLORATORY/POST-HOC` (nowa, z audytu).
-
-Świadomie **nie** dodano więcej hipotez — audyt dał ustalenia metodologiczne,
-nie nowe mechanizmy (ADR-006).
+**Dług M01, niespłacony.** Warstwa etykiet (`triple_barrier.py`) niesie treść
+hipotezy i nie została przeniesiona; razem z nią odpadły **dwa testy na brak
+podglądania przyszłości przez symulator**. Ślad imienny w `tests/test_harness.py`.
+**Muszą wrócić przed T001** — to warunek, nie drobiazg.
 
 ---
 
-## M01 — ZAMKNIĘTY, PRZECHODZI (2026-09-23)
+## M02 — ZAMKNIĘTY, NIEROZSTRZYGNIĘTY (2026-09-23)
 
-Aparatura przeniesiona, zweryfikowana i uruchomiona. Świece zbudowane.
-**Żaden backtest nadal nie został uruchomiony.**
+Audyt mocy przed T001 (ADR-009). Przebieg `20260923T172201Z-fa3731`, rodzaj
+`control`. Pełny raport: `reports/m02_power_audit.md`. **Żaden backtest nadal
+nie został uruchomiony, N = 7 bez zmian.**
 
-**Weryfikacja przeniesienia — najważniejszy wynik M01 (`FACT`).** Te same
-ticki przez przeniesiony pipeline dają ramki **identyczne co do bitu**
-z tymi, które wyprodukował `market-quant` (EURUSD 2015: M1 372 942 bary,
-H1 6 226). To mocniejszy dowód niż komplet przechodzących testów — port
-niczego nie zmienił, ani w dekoderze, ani w resamplingu.
+| h | n_eff w czasie | P_eff | n_eff łącznie | σ w R | **MDE** | Bramka 0,08 R |
+|---|---|---|---|---|---|---|
+| 3 d | 3 126 | 2,00 | 1 040 | 0,9165 | **0,0796** | **na progu** |
+| 10 d | 936 | 2,02 | 315 | 0,9261 | **0,1463** | przekroczona |
 
-| Element | Stan |
-|---|---|
-| Przeniesiono | 11 modułów, ~2 350 linii — `data`, `execution/simulator`, `harness`, statystyka |
-| Testy | **173 przechodzą**: 149 przeniesionych + 24 własne na nasze zmiany |
-| Świece | 2015–2023, 6 par, 108 partycji, 433 MB |
-| Raport jakości | `reports/data_quality.md` — **PRZECHODZI**, luki 0,01–0,02% na parę |
-| Odcisk danych | `sha256 = 6b6b3aa4…`, 336 561 plików — `UNKNOWN` z `DATA.md` domknięty |
-| Pieczęć 2024–2026 | Działa w loaderze + strażnik w skrypcie budowy |
+**Werdykt: NIEROZSTRZYGNIĘTE.** ADR-009 blokuje T001 tylko przy przekroczeniu
+progu na OBU horyzontach. h=10d przekracza przy każdym założeniu. h=3d siada
+dokładnie na progu — różnica 0,0004 R przy błędzie pomiaru ±0,0018 R.
 
-**Co M01 wykrył, czego poprzednik nie mógł.** Raport zgłosił najpierw
-`NIE PRZECHODZI`: godzina `2023-12-24 22:00` bez ticków u wszystkich sześciu
-par. Leży w segmencie OOS, którego `market-quant` nigdy nie zbudował.
-Dowód z rozmiarów plików cache pokazał zamknięcie rynku, nie awarię feedu —
-Wigilia wypadła w niedzielę, ten sam wzorzec co odziedziczona godzina z 2017 r.
-Zaakceptowana jawnie, z dowodem, bez osłabiania detektora: **ADR-010**.
+**Najważniejszy wynik M02 (`FACT`). σ była dziedziczona, nie mierzona — i jest
+2× za mała.** Tabela szacunków w ADR-009 powstała przez przeskalowanie połowy
+CI z `market-quant` przez √n, co implikuje σ = 0,455 R. Zmierzona symulatorem
+na 8 000 wejść: **0,92 R** przy obu horyzontach. n_eff ADR-009 zgadł nieźle;
+pomylił się o 2× na rozrzucie.
 
-Trzy godziny odziedziczone po `market-quant` zostały potwierdzone naszym
-własnym przebiegiem — detektor wskazał dokładnie je i żadnej innej.
+**Konsekwencja, której nie było w planie.** Przy h=10d T001 miałby **mniejszą
+moc niż eksperyment, który miał poprawić**: 0,146 R wobec 0,097 R
+`market-quant`, mimo 1,8× większego n_eff. Usunięcie warstwy portfelowej
+(ADR-002) odblokowało próbę i zarazem pełny rozrzut wyniku.
 
-**Dług zaciągnięty świadomie.** Warstwa etykiet (`triple_barrier.py`) niesie
-treść hipotezy i nie została przeniesiona. Razem z nią odpadły **dwa testy
-na brak podglądania przyszłości przez symulator**. Ślad imienny jest
-w `tests/test_harness.py`. **Muszą wrócić przed T001** — to warunek, nie
-drobiazg.
+**Wynik ostrzejszy od samej bramki (`INFERENCE`).** Kryteria falsyfikacji T001
+są w większości nieosiągalne. Przy h=3d `FALSIFIED` wymaga średniej < −0,036 R,
+a `SUPPORTED` > +0,056 R; przy h=10d odpowiednio < −0,082 R i **> +0,102 R**.
+Między tymi progami zapada `NOT_SUPPORTED` — a dryf kosztowy to już −0,031 R,
+więc umiarkowany realny efekt wyląduje w martwej strefie niemal na pewno.
+**Najprawdopodobniejszym wynikiem T001 w obecnej konstrukcji jest
+`NOT_SUPPORTED` niezależnie od tego, czy efekt istnieje** — kosztem 6 prób
+(N: 7 → 13).
+
+**Co jeszcze wyszło.** Sesja nie kupuje mocy: „wszystkie godziny" dokłada +72%
+wierszy i **zero** obserwacji niezależnych. Sześć par zachowuje się jak ~2
+niezależne rynki (średnie |ρ| = 0,40, wspólny czynnik USD). Prerejestracja
+T001 nie rozstrzyga, co z oknami wychodzącymi w OOS — luka do domknięcia.
 
 ---
 
 ## Gdzie jesteśmy
 
-**Faza 1 w toku.** M01 zamknięty. Następny krok: M02.
+**Faza 1 w toku.** M01 zamknięty i przechodzi. M02 zamknięty, bramka
+nierozstrzygnięta. **T001 jest zablokowany do czasu decyzji** — patrz blokery.
 
 **Licznik prób: N = 7** (odziedziczone, ADR-004). Uruchomionych prób
-strategii w tym projekcie: **0**. M01 był krokiem infrastrukturalnym
-i nie liczy się do N.
+strategii w tym projekcie: **0**. M01 i M02 były krokami kontrolnymi
+i nie liczą się do N.
+
+**Testy: 221** (173 po M01 + 48 dołożonych w M02).
 
 ---
 
@@ -111,7 +95,8 @@ i nie liczy się do N.
 | # | Krok | Rozstrzyga |
 |---|---|---|
 | ~~1~~ | ~~**M01** — przeniesienie aparatury, świece, testy, raport jakości~~ | **ZAMKNIĘTY, PRZECHODZI** |
-| 2 | **M02** — audyt mocy | **Czy T001 ma w ogóle sens.** Bramka: przy wykrywalnej przewadze ≥0,08 R T001 nie startuje |
+| ~~2~~ | ~~**M02** — audyt mocy~~ | **ZAMKNIĘTY, NIEROZSTRZYGNIĘTY** — bramka zależy od decyzji, nie od pomiaru |
+| **2a** | **Decyzja: model niezależności par + próg 0,08 R** | **Czy T001 startuje.** Wymaga nowego ADR. **BLOKUJE wszystko dalej** |
 | 3 | **M03** — kalibracja kontrolą losową | Czy wynikowi negatywnemu będzie można wierzyć |
 | 4 | **M04** — domknięcie kontroli przesuniętych cech | Otwarte `UNKNOWN` po poprzedniku |
 | 5 | **T001** — H01 momentum, pomiar na wszystkich barach | Pytanie, na które `market-quant` nie miał mocy odpowiedzieć |
@@ -119,7 +104,8 @@ i nie liczy się do N.
 Kroki M są kontrolami aparatury i **nie liczą się** do N w DSR.
 
 **Przed T001 trzeba dodatkowo:** zbudować warstwę etykiet od nowa (bez
-treści hipotezy w module) i przywrócić dwa testy na brak look-ahead.
+treści hipotezy w module), przywrócić dwa testy na brak look-ahead
+i **domknąć w prerejestracji granicę okien wychodzących w OOS** (M02).
 
 ---
 
@@ -129,11 +115,13 @@ treści hipotezy w module) i przywrócić dwa testy na brak look-ahead.
 |---|---|
 | **Kohorta replikacyjna nie istnieje** | Zero bajtów dla XAUUSD, WTI, S&P 500, DAX. Replikacja niemożliwa → **żadna hipoteza nie osiągnie `SURVIVED`** w tej fazie (ADR-008). Najwyższy status: `SUPPORTED` |
 | **Segment RESEARCH był oglądany** | 7 prób poprzednika na tych samych danych. Poprzeczka DSR startuje podwyższona (ADR-004) |
-| **Moc pozostanie ograniczona** | Wąskim gardłem jest nakładanie okien, nie liczba wierszy. Szacunek: n_eff ~450 przy h=10d, ~1500 przy h=3d. Do zmierzenia w M02 |
+| **Moc jest za mała przy h=10d** | **ZMIERZONE w M02.** MDE 0,146 R — gorzej niż 0,097 R `market-quant`. Wąskim gardłem okazała się σ (0,92 R zamiast dziedziczonych 0,455), nie samo nakładanie okien |
+| **Bramka ADR-009 nierozstrzygnięta przy h=3d** | MDE 0,0796 wobec progu 0,08 R. Rozstrzyga wybór modelu niezależności par w nawiasie [2,0; 6,0] — **decyzja, nie pomiar**. Wymaga ADR przed T001 |
+| **Granica okien wychodzących w OOS** | Prerejestracja T001 mówi „decyzje do 2021-12-31" i nie rozstrzyga, co z `t1` w styczniu 2022. M02 przyjął wariant nietykający OOS. Do jawnej deklaracji przed T001 |
 | **Rentowności 2-letnie** `UNKNOWN` | Brak spójnej definicji dla wszystkich walut. Blokuje H04 |
 | **Marża swapu** `UNKNOWN` | Jedyna liczba w modelu kosztów bez sparsowanego źródła → obowiązkowa oś wrażliwości zamiast wartości punktowej |
 | **Kontrola przesuniętych cech** `UNKNOWN` | U poprzednika dała wynik lepszy od baseline. Wyjaśnione szumem przy ich mocy; do domknięcia w M04 |
-| **Hash zbioru ticków** `UNKNOWN` | Do policzenia w M01. Bez niego nie wykryjemy podmiany danych pod przebiegiem |
+| ~~Hash zbioru ticków `UNKNOWN`~~ | **ZAMKNIĘTE w M01** — `sha256 = 6b6b3aa4…`, 336 561 plików |
 | Zależność od ścieżki do ticków | Projekt nie jest samowystarczalny na poziomie danych źródłowych (ADR-007) |
 
 ---

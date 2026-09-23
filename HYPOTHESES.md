@@ -58,7 +58,7 @@ Historia statusów jest dopisywana, nigdy nadpisywana.
 | **Kryteria falsyfikacji** | `NOT_SUPPORTED`, gdy CI95 expectancy zawiera 0 we wszystkich sześciu komórkach. `FALSIFIED`, gdy CI95 leży w całości poniżej +0,02 R we wszystkich komórkach. `SUPPORTED`, gdy CI95 > 0 w ≥1 komórce **i** kontrola losowa pobita przy p < 0,05 |
 | **Obecne dowody** | Brak własnych. Zewnętrznie: `market-quant` nie wykrył efektu w koniunkcji z H02 przy mocy pozwalającej wykryć wyłącznie przewagę ≥0,10 R. **To nie jest dowód przeciwko H01** — komponent nie był mierzony osobno |
 | **Powiązane triale** | T001 (zaplanowany, nieuruchomiony) |
-| **Następny krok** | M02 (audyt mocy, ADR-009) → dopiero potem T001 |
+| **Następny krok** | **M02 wykonany (2026-09-23) — bramka NIEROZSTRZYGNIĘTA.** Wykrywalna przewaga: **0,0796 R** przy h=3d (próg 0,08 R, błąd pomiaru ±0,0018) i **0,1463 R** przy h=10d. Przy h=10d T001 miałby mniejszą moc niż `market-quant` (0,097 R). Start T001 wymaga wcześniej: decyzji o modelu niezależności par (nowy ADR), M03, M04, warstwy etykiet i dwóch testów na look-ahead. Szczegóły: `reports/m02_power_audit.md` |
 
 **Uwaga do siatki.** Mechanizm under-reaction nie wskazuje jednej skali
 czasowej, więc pojedyncze k byłoby arbitralne. Trzy wartości są prerejestrowane

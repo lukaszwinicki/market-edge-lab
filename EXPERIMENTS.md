@@ -16,7 +16,7 @@ projekcie: **0**.
 | ID | Hipoteza | Status | Wynik | Decyzja |
 |---|---|---|---|---|
 | M01 | — | `CLOSED` | **PRZECHODZI** — port identyczny co do bitu, 173 testy, raport jakości zdany | KEEP |
-| M02 | — | `PLANNED` | — | — |
+| M02 | — | `CLOSED` | **NIEROZSTRZYGNIĘTE** — h=10d bramkę przekracza, h=3d siada na progu (0,0796 vs 0,08) | decyzja o modelu par → nowy ADR |
 | M03 | — | `PLANNED` | — | — |
 | M04 | — | `PLANNED` | — | — |
 | T001 | H01 | `PREREGISTERED` | — | — |
@@ -75,7 +75,7 @@ w `tests/test_harness.py`. **Warunek startu T001.**
 
 ---
 
-## M02 — Audyt mocy (ADR-009)
+## M02 — Audyt mocy (ADR-009) · `CLOSED` · **NIEROZSTRZYGNIĘTE**
 
 **Cel.** Zmierzyć, ile obserwacji naprawdę niezależnych daje się uzyskać przy
 horyzoncie 3 i 10 dni, i jaka z tego wynika najmniejsza wykrywalna przewaga.
@@ -88,6 +88,71 @@ przeprojektować i zapisać to nowym ADR.
 nie wykryje interesującego efektu, spala próbę w liczniku DSR za zero
 informacji. Szacunki przed pomiarem: n_eff ~450 przy h=10d, ~1500 przy h=3d.
 To są **szacunki, nie pomiary**.
+
+### Wynik (2026-09-23) · `20260923T172201Z-fa3731` · pełny raport: `reports/m02_power_audit.md`
+
+Konwencja mocy przyjęta w M02, bo ADR-009 jej nie podaje: α = 0,05 dwustronnie,
+**moc 80%**, MDE = 2,8016·σ/√n_eff. Odtwarza liczby odziedziczone (n_eff 172,
+σ 0,455 → 0,097 R wobec raportowanego „≥0,10 R").
+
+| h | n_eff w czasie (6 par) | P_eff | n_eff łącznie | σ w R | **MDE** |
+|---|---|---|---|---|---|
+| 3 d | 3 126 | 2,00 | 1 040 | 0,9165 | **0,0796** |
+| 10 d | 936 | 2,02 | 315 | 0,9261 | **0,1463** |
+
+**Werdykt: NIEROZSTRZYGNIĘTE.** h=10d przekracza bramkę przy każdym założeniu
+(0,085–0,146 R). h=3d siada na progu — różnica 0,0004 R przy błędzie pomiaru
+±0,0018 R. Bramka ADR-009 wymaga przekroczenia przy OBU horyzontach, więc
+wszystko zależy od h=3d, a ten zależy od modelu niezależności par:
+**[2,0; 6,0]** to nawias ciasny matematycznie, ale wybór punktu w nim jest
+decyzją, nie pomiarem. → wymaga nowego ADR przed T001.
+
+### Trzy ustalenia, których nie było w planie
+
+1. **σ była dziedziczona, nie mierzona** — i jest 2× za mała. Tabela ADR-009
+   implikuje σ = 0,455 R (przeskalowana połowa CI `market-quant` przez √n).
+   Zmierzone: **0,92 R** przy obu horyzontach. n_eff ADR-009 zgadł nieźle,
+   rozrzut pomylił dwukrotnie.
+2. **Przy h=10d T001 miałby mniejszą moc niż `market-quant`** — 0,146 R wobec
+   0,097 R, mimo 1,8× większego n_eff. Usunięcie warstwy portfelowej (ADR-002)
+   odblokowało próbę i zarazem pełny rozrzut wyniku.
+3. **Sesja nie kupuje mocy.** Wariant „wszystkie godziny" dokłada +72% wierszy
+   i **zero** obserwacji niezależnych (3 126 → 3 126). Oba warianty zostają
+   prerejestrowane, ale jako pytanie o realizm, nie o moc — w bilansie
+   porównań wielokrotnych druga sesja wyłącznie kosztuje.
+
+### Wynik ostrzejszy od samej bramki
+
+**Kryteria falsyfikacji T001 są w większości nieosiągalne.** Zestawienie
+zmierzonej połowy CI z prerejestrowanymi progami (`FALSIFIED` < +0,02 R,
+`SUPPORTED` > 0) daje martwą strefę, w której zapada `NOT_SUPPORTED`:
+
+| h | Połowa CI (konserw.) | `FALSIFIED` wymaga | `SUPPORTED` wymaga | Martwa strefa |
+|---|---|---|---|---|
+| 3 d | 0,0557 | średnia < −0,036 R | średnia > +0,056 R | 0,091 R |
+| 10 d | 0,1024 | średnia < −0,082 R | średnia > +0,102 R | 0,185 R |
+
+Dryf kosztowy to −0,031 R (h=3d), więc umiarkowany realny efekt wyląduje
+w martwej strefie niemal na pewno. Przy h=10d `SUPPORTED` wymagałoby
+expectancy **> +0,10 R netto** — progu, którego `market-quant` nie przekroczył
+i który uznano tam za zbyt wysoki. `INFERENCE`: najprawdopodobniejszym wynikiem
+T001 w obecnej konstrukcji jest `NOT_SUPPORTED` **niezależnie od tego, czy
+efekt istnieje** — kosztem 6 prób (N: 7 → 13).
+
+### Luka w prerejestracji T001, wykryta po drodze
+
+„Decyzje do 2021-12-31" nie rozstrzyga, co z oknami wychodzącymi poza segment:
+przy h=10d decyzja z 28.12.2021 rozstrzyga się w styczniu 2022, czyli w OOS.
+M02 przyjął wariant nietykający OOS (−98 decyzji na parę, 0,45% próby, bez
+wpływu na n_eff). **T001 musi to zadeklarować jawnie przed uruchomieniem** —
+po zobaczeniu wyniku będzie to parametr swobodny.
+
+### Czego M02 nie zrobił
+
+Nie liczył `mom_k` — wyłącznie sprawdzał, czy cecha jest **określona**. Żadna
+próba nie została zapalona, N = 7 bez zmian. Dryf kosztowy (−0,031 R przy h=3d,
+−0,0098 R przy h=10d) **nie jest kontrolą losową** — M03 pozostaje konieczne.
+Dług warstwy etykiet i dwóch testów na look-ahead jest niezmieniony.
 
 ---
 
