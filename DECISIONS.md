@@ -579,3 +579,59 @@ z osobna jest poprawny.
   prerejestracji, żaden przebieg nie może dotknąć jej cechy** — także
   przebieg nazwany kontrolą. Klasyfikacja `control`/`strategy` idzie za tym,
   co przebieg ogląda, nie za tym, po co go uruchomiono.
+
+---
+
+## ADR-013 — M04 bez ramienia „wyrocznia postarzona"; pytanie o wyrównanie przechodzi na dane syntetyczne
+
+**Status:** ACCEPTED · 2026-09-23 · **Wykryte w:** implementacji M04
+· **Koryguje:** ADR-012 (tabela ramion)
+
+**Decyzja.** M04 został uruchomiony z **dwoma** skrajnymi ramionami —
+szum (`p = 0,5`) i wyrocznia (`p = 1,0`) — plus pełną krzywą pośrednią.
+Ramię **„wyrocznia postarzona" nie powstało**. Pytanie o przesunięcie
+o jeden bar przechodzi w całości na testy na danych syntetycznych.
+
+**Powód.** ADR-012 definiował ramię postarzone jako „ta sama wyrocznia, ale
+z okna zamkniętego przed decyzją". Przy implementacji okazało się, że to jest
+**znak zwrotu z przeszłości**, czyli cecha momentum. Przy h = 3 d byłby to
+niemal dokładnie `mom_72`. Uruchomienie takiego ramienia łamałoby regułę
+ogólną zapisaną w tym samym ADR-012: *dopóki hipoteza nie ma żywej,
+zamrożonej prerejestracji, żaden przebieg nie może dotknąć jej cechy*.
+
+ADR-012 był więc wewnętrznie sprzeczny: zakazywał w konkluzji tego, co
+zalecał w tabeli. Sprzeczność wyszła dopiero przy pisaniu kodu.
+
+**Czym zastąpiono.** Dwiema rzeczami, razem mocniejszymi od usuniętego
+ramienia:
+
+1. **Krzywa czułości zamiast trzeciego punktu.** Odegranie obu stron z tego
+   samego momentu daje `E(p)` dla dowolnego `p` bez dodatkowych symulacji.
+   Zamiast trzech punktów mamy funkcję — i dwa progi, które z niej wynikają
+   (opłacalności i wykrywalności).
+2. **Wyrównanie znaczników na danych syntetycznych**, gdzie poprawna
+   odpowiedź jest znana z konstrukcji, a nie zgadywana z rynku:
+   `test_grid.py` (cena odniesienia, cena wyjścia), `test_volatility.py`
+   (granica dobowa ATR), `test_simulator.py` (okno transakcji, trzy testy),
+   `test_entries.py` (złożenie całej ścieżki na zasianym ruchu ceny).
+
+**Dlaczego to lepsze miejsce na to pytanie.** Przebieg na prawdziwych danych
+odpowiada „czy wynik wyszedł inny", a nie „czy wyrównanie jest poprawne" —
+różnicę trzeba dopiero interpretować, i to właśnie dlatego anomalia
+u poprzednika (wynik z cechami postarzonymi **lepszy**: −0,0268 wobec
+−0,0560 R) nigdy nie została rozstrzygnięta. Na danych syntetycznych
+przesunięcie o jeden bar daje odpowiedź **przeciwną**, nie „nieco inną",
+a test biegnie przy każdym uruchomieniu pakietu, nie raz.
+
+**Alternatywy.** (a) *Zbudować ramię postarzone z cechy niebędącej momentum.*
+Odrzucone: każda reguła kierunkowa zbudowana z przeszłych cen jest jakąś
+cechą, a wybieranie „takiej, która nie wygląda jak H01" to dokładnie ten
+rodzaj uznaniowości, którego projekt ma unikać. (b) *Uruchomić ramię
+postarzone i uznać, że `mom_72` to nie `mom_24/120/480`.* Odrzucone: ta sama
+postać funkcyjna, ta sama rodzina, a ocena „to wystarczająco inna cecha"
+byłaby wyłącznie moją.
+
+**Konsekwencje.** Reguła ogólna z ADR-012 zostaje bez zmian i właśnie
+zadziałała przeciwko zaleceniu z tego samego ADR-u — to jest zachowanie
+pożądane. Ramię „cecha vs cecha postarzona" pozostaje **warunkiem 5
+prerejestracji T003**, gdzie cecha i tak musi być policzona.

@@ -18,7 +18,7 @@ projekcie: **0**.
 | M01 | — | `CLOSED` | **PRZECHODZI** — port identyczny co do bitu, 173 testy, raport jakości zdany | KEEP |
 | M02 | — | `CLOSED` | **NIEROZSTRZYGNIĘTE** — h=10d bramkę przekracza, h=3d siada na progu (0,0796 vs 0,08) | ADR-011: T001 wycofany |
 | M03 | — | `CLOSED` | **PRZECHODZI** — expectancy losowych wejść = −koszt w granicach 1 SE; symulator nie zna swapu | KEEP |
-| M04 | — | `BLOCKED` | — | ADR-012: nie może ruszyć przed zamrożeniem prerejestracji T003 |
+| M04 | — | `CLOSED` | **PRZECHODZI** — wzmocnienie poprawne; próg wykrywalności to 57,3% / 61,9% trafności kierunku | KEEP |
 | T001 | H01 | `WITHDRAWN` | **nieuruchomiony** — konstrukcja bez mocy na osiągnięcie własnych kryteriów (M02) | ADR-011 |
 | T002 | H02, H07 | `PLANNED` | — | — |
 | T003 | H01 | `PLANNED` | — | zastępuje T001, 6 warunków: ADR-011 + ADR-012 |
@@ -239,9 +239,9 @@ własność należy do symulatora, nie do `triple_barrier.py`.
 
 ---
 
-## M04 — Domknięcie kontroli przesuniętych cech · `BLOCKED` (ADR-012)
+## M04 — Czułość przyrządu · `CLOSED` · **PRZECHODZI** (ADR-012)
 
-> **Postać z fazy 0 nie może wystartować.** Porównanie baseline z cechą
+> **Postać z fazy 0 nie wystartowała i nie wystartuje.** Porównanie baseline z cechą
 > postarzoną wymaga policzenia `mom_k`, czyli **oceny sygnału H01**. To (a)
 > klasyfikuje przebieg jako `strategy` i dolicza go do N, (b) pokazuje
 > expectancy H01, zanim T003 zostanie prerejestrowany — a prerejestracja
@@ -250,14 +250,64 @@ własność należy do symulatora, nie do `triple_barrier.py`.
 > W planie z fazy 0 kolejność była bezpieczna, bo T001 był już zamrożony.
 > **Wycofanie T001 (ADR-011) usunęło tę ochronę.**
 >
-> **Nowa postać (ADR-012):** cechy syntetyczne o znanej zawartości
-> informacyjnej — szum, wyrocznia, wyrocznia postarzona. Nie dotyka `mom_k`,
-> zostaje `control`, może ruszyć od zaraz. Porównanie na cesze prawdziwej
-> przenosi się do T003 jako prerejestrowane ramię kontrolne.
+> **Nowa postać (ADR-012, skorygowana przez ADR-013):** kierunek ze znaku
+> faktycznego zwrotu w oknie — szum (`p`=0,5), wyrocznia (`p`=1,0) i cała
+> krzywa między nimi. Ramienia „wyrocznia postarzona" **nie ma**: byłoby
+> znakiem zwrotu z przeszłości, czyli cechą momentum, co łamałoby regułę
+> z samego ADR-012. Pytanie o przesunięcie o jeden bar przeszło na testy
+> syntetyczne. Porównanie na cesze prawdziwej → T003, warunek 5.
 
 **Cel (postać z fazy 0, zachowany jako zapis).** Sprawdzić przy pełnej mocy,
 czy cechy postarzone o jeden bar dają wynik **gorszy** niż baseline, jak
 powinny.
+
+### Wynik (2026-09-23) · `20260923T181510Z-963686` · raport: `reports/m04_sensitivity.md`
+
+Postać wykonana (ADR-012): kierunek ze **znaku faktycznego zwrotu w oknie**
+— z przyszłości, celowo. Żadnej cechy. Dla 30 000 momentów odegrano **obie**
+strony, więc cała krzywa `E(p) = p·E[trafna] + (1−p)·E[nietrafna]` wychodzi
+z jednego przebiegu.
+
+| | h = 3 d | h = 10 d |
+|---|---|---|
+| E[trafna] / E[nietrafna] | +0,6858 / −0,7347 R | +0,6772 / −0,7168 R |
+| **Próg opłacalności** (E = 0) | **51,72%** | **51,42%** |
+| **Próg wykrywalności** (E = MDE z M02) | **57,33%** | **61,91%** |
+| Iloraz przewag nad 50% | **4,3×** | **8,4×** |
+
+**Sprawdzenie krzyżowe z M03.** Przy `p = 0,50` M04 musi odtworzyć M03 —
+i odtwarza: −0,0245 wobec −0,0248 R (h=3d) i −0,0198 wobec −0,0191 R (h=10d).
+**Zgodność do 0,0007 R** przy innych ziarnach, innej strukturze losowania
+i innej ścieżce kodu. Najmocniejsze sprawdzenie aparatury po M01.
+
+`INFERENCE`: **eksperyment widzi tylko efekty 4–8× większe od najmniejszego
+opłacalnego.** Między 51,7% a 57,3% trafności leży pas, w którym strategia
+naprawdę zarabia, a pomiar zwróci `NOT_SUPPORTED`. To ta sama martwa strefa
+co w M02, ale w jednostce, o której da się mieć zdanie.
+
+### Drugi wynik: bariery prawie nie wiążą
+
+Przy **doskonałym** kierunku 84% (h=3d) i 83% (h=10d) pozycji kończy na
+barierze czasowej; TP pada w 10%, SL w 5%. Średni |ruch| w oknie to **40%
+dystansu do TP** przy obu horyzontach — typowy ruch nie sięga nawet stopu.
+
+`INFERENCE`: triple-barrier jest tu w dużej mierze **dekoracją** — dokłada
+ryzyko luki i złożoność, rozstrzygając 16% przypadków. Tłumaczy zarazem, czemu
+σ z M02 (0,92 R) jest bliska rozrzutowi samego zwrotu: bariery obcinają mało.
+Sufit przy wyroczni to +0,686 R wobec ruchu wartego 0,810 R, więc geometria
+zamienia **85%** ruchu na wynik — straty na geometrii nie ma, jest tylko
+bezczynność. Wejście do warunku 2 i do kierunku „zmiana geometrii" dla T003.
+
+### Czego M04 nie zrobił
+
+Nie policzył `mom_k`. Nie porównał cechy prawdziwej z jej opóźnieniem — to
+ramię przechodzi do T003 (warunek 5). Nie doliczał swapu: krzywa jest
+w kosztach, które symulator implementuje, a marża przesuwa oba progi w górę.
+
+Pytanie „czy w pipelinie jest przesunięcie o jeden bar" rozstrzygają testy na
+danych syntetycznych, nie ten przebieg: `test_grid.py`, `test_volatility.py`,
+trzy testy w `test_simulator.py` i złożenie całej ścieżki w
+`test_entries.py::test_edge_is_recovered_only_when_it_lies_inside_the_trade_window`.
 
 **Kontekst.** W `market-quant` ta kontrola dała wynik **lepszy** (−0,0268 vs
 −0,0560 R). Tamto wyjaśnienie — szum przy połowie CI 0,067 R — było poprawne
