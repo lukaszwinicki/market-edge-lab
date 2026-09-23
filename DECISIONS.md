@@ -376,3 +376,117 @@ i datę — akceptacja bez dowodu jest wyciszeniem detektora pod inną nazwą.
 lat nie przeszły jeszcze przez detektor. Wigilia wypada w niedzielę także
 w 2028 r.; w samym segmencie zapieczętowanym należy spodziewać się własnych,
 jeszcze nieznanych pozycji. Każda wymaga tego samego trybu: dowód, ADR, wpis.
+
+---
+
+## ADR-011 — T001 w prerejestrowanej postaci nie startuje; konstrukcja wymaga przeprojektowania
+
+**Status:** ACCEPTED · 2026-09-23 · **Wykryte w:** M02 · **Zastępuje:** tabelę
+szacunków w ADR-009 (sama decyzja ADR-009 pozostaje w mocy)
+
+**Decyzja.** Prerejestracja T001 zostaje **wycofana przed uruchomieniem**.
+H01 traci żywą prerejestrację i wraca do statusu `PROPOSED`. Eksperyment
+zastępczy dostaje **nowe ID (T003)** i nie wolno go uruchomić, dopóki jego
+prerejestracja nie spełni czterech warunków wymienionych niżej.
+
+Wycofana prerejestracja **zostaje w `EXPERIMENTS.md`** w całości, oznaczona
+`WITHDRAWN`. Nie jest usuwana ani edytowana.
+
+**Powód.** M02 (`20260923T172201Z-fa3731`) zmierzył to, co ADR-009 kazał
+zmierzyć, i wynik nie mieści się w przewidzianym przez ADR-009 schemacie
+dwóch odpowiedzi.
+
+Bramka ADR-009 czytana dosłownie daje **nierozstrzygnięcie**: blokuje tylko
+przy MDE ≥ 0,08 R na obu horyzontach, a h = 3 d siada na 0,0796 R przy
+własnym błędzie pomiaru ±0,0018 R.
+
+Wiążący jest natomiast argument, który w ADR-009 nie został przewidziany
+i który **trzyma przy każdym modelu niezależności par**:
+
+| `FACT` z M02 | h = 3 d | h = 10 d |
+|---|---|---|
+| σ wyniku w R (zmierzona, 8 000 wejść) | 0,9165 ± 0,0103 | 0,9261 ± 0,0104 |
+| σ założona w ADR-009 (dziedziczona) | 0,455 | 0,455 |
+| MDE przy parach **niezależnych** (najkorzystniej) | 0,0459 | **0,0848** |
+| MDE konserwatywnie (P_eff = 2,0) | 0,0796 | 0,1463 |
+| `SUPPORTED` wymaga średniej powyżej | +0,032…+0,056 R | +0,059…+0,102 R |
+| `FALSIFIED` wymaga średniej poniżej | −0,012…−0,036 R | −0,039…−0,082 R |
+
+Trzy ustalenia, każde wystarczające samo:
+
+1. **σ była dziedziczona, nie mierzona, i jest dwa razy za mała.** Tabela
+   ADR-009 powstała przez przeskalowanie połowy CI `market-quant` przez √n,
+   co implikuje σ = 0,455 R przy obu horyzontach. Zmierzona: 0,92 R. n_eff
+   ADR-009 oszacował nieźle; pomylił się na rozrzucie.
+2. **Horyzont 10 dni nie przechodzi bramki przy ŻADNYM modelu par** — nawet
+   przy założeniu sześciu niezależnych rynków MDE wynosi 0,0848 R. T001
+   miałby tam **mniejszą moc niż eksperyment, który miał poprawić**
+   (0,146 R konserwatywnie wobec 0,097 R `market-quant`), mimo 1,8× większej
+   liczby obserwacji efektywnych.
+3. **Kryteria falsyfikacji T001 są w większości nieosiągalne.** Między progiem
+   `FALSIFIED` a progiem `SUPPORTED` leży martwa strefa szerokości 0,064 R
+   (h=3 d, najkorzystniej) do 0,185 R (h=10 d, konserwatywnie), w której
+   zapada `NOT_SUPPORTED`. Sam dryf kosztowy to −0,031 R przy h = 3 d, więc
+   umiarkowany, ale realny efekt trafia w tę strefę niemal na pewno.
+
+`INFERENCE`. T001 w prerejestrowanej postaci jest eksperymentem, którego
+najprawdopodobniejszym wynikiem jest `NOT_SUPPORTED` **niezależnie od tego,
+czy efekt istnieje** — kosztem sześciu prób (N: 7 → 13). To jest dokładnie
+scenariusz, przed którym ADR-009 miał chronić.
+
+**Alternatywy.**
+
+(a) *Uruchomić T001 wyłącznie przy h = 3 d, przyjmując model korelacji ze
+znakiem (P_eff = 4,88).* Odrzucone: model nie został zmierzony, a przy
+momentum na uniwersum zdominowanym przez czynnik USD jest prawdopodobnie zbyt
+optymistyczny — gdy dolar się umacnia, `mom(EURUSD) < 0` i `mom(USDCAD) > 0`
+są tym samym zakładem. Poza tym martwa strefa zostaje szeroka na 0,064 R
+nawet w tym wariancie.
+
+(b) *Obniżyć próg 0,08 R.* Odrzucone bez dyskusji: próg był prerejestrowany
+w ADR-009, a zmiana po zobaczeniu 0,0796 to modyfikacja kryterium pod wynik.
+
+(c) *Rozszerzyć M02 o pomiar korelacji zwrotów przemnożonych przez znak cechy.*
+Odrzucone na tym etapie: wymaga policzenia `sign(mom_k)` przed prerejestrowanym
+uruchomieniem, a nawet domknięcie nawiasu [2,0; 6,0] po najkorzystniejszej
+stronie nie ratuje h = 10 d ani nie zwęża martwej strefy poniżej 0,064 R.
+Pomiar zostaje jako możliwy do wznowienia, gdy przeprojektowana konstrukcja
+będzie od niego faktycznie zależeć.
+
+(d) *Uruchomić T001 bez zmian i przyjąć `NOT_SUPPORTED` jako prawdopodobny
+wynik.* Odrzucone: „nie znaleziono przewagi" jest pełnoprawnym wynikiem tylko
+wtedy, gdy przyrząd miał szansę ją zobaczyć. Tutaj nie ma, a próby liczą się
+do DSR niezależnie od tego, czego dowiodły.
+
+**Warunki, które musi spełnić prerejestracja T003.**
+
+1. **Deklaracja modelu niezależności par**, jawna i uzasadniona, wraz z liczbą
+   P_eff wchodzącą do obliczenia mocy. Milczenie w tej sprawie nie jest już
+   dopuszczalne — M02 pokazał, że to wybór wart czynnika 1,7 na MDE.
+2. **Wyliczenie mocy z σ ZMIERZONEJ dla zadeklarowanej geometrii barier**,
+   nie odziedziczonej i nie przeskalowanej. σ zależy od geometrii, więc każda
+   zmiana SL/TP unieważnia poprzedni pomiar i wymaga nowego.
+3. **Wykazanie, że progi falsyfikacji są osiągalne** przy tej mocy: martwa
+   strefa musi być wypisana w prerejestracji razem z uzasadnieniem, dlaczego
+   efekt o interesującej wielkości w nią nie wpada.
+4. **Rozstrzygnięcie granicy okien wychodzących poza segment.** Prerejestracja
+   T001 mówiła „decyzje do 2021-12-31" i nie mówiła, co z `t1` w styczniu 2022,
+   czyli w OOS. M02 przyjął wariant nietykający OOS (−98 decyzji na parę).
+
+**Zabezpieczenie przed obchodzeniem prerejestracji.** Wycofanie T001 jest
+dopuszczalne wyłącznie dlatego, że **nie zaobserwowano niczego, co dotyczy
+H01**: M02 był kontrolą `control`, nie liczył `mom_k` ani jego znaku, sprawdzał
+wyłącznie, czy cecha jest określona. Gdyby jakakolwiek wielkość zależna od
+treści hipotezy została obejrzana, wycofanie prerejestracji byłoby wyborem
+kryterium pod wynik i nie wolno by go było wykonać. Każde przyszłe wycofanie
+prerejestracji wymaga tego samego dowodu, zapisanego w ADR.
+
+**Konsekwencje.**
+
+* T001 → `WITHDRAWN`, nieuruchomiony. **N pozostaje 7** — rejestr liczy wpisy
+  `start`, a takiego nie było.
+* H01 → `PROPOSED`. Hipoteza żyje, jej protokół nie.
+* Tabela szacunków w ADR-009 przestaje być podstawą czegokolwiek. Sam ADR-009
+  — wymóg audytu mocy przed eksperymentem — zostaje w mocy i właśnie zadziałał.
+* M03 i M04 pozostają konieczne i nie zależą od kształtu T003.
+* Dług M01 (warstwa etykiet, dwa testy na look-ahead) jest niezmieniony.

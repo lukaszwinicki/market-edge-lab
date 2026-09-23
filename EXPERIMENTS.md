@@ -19,8 +19,9 @@ projekcie: **0**.
 | M02 | — | `CLOSED` | **NIEROZSTRZYGNIĘTE** — h=10d bramkę przekracza, h=3d siada na progu (0,0796 vs 0,08) | decyzja o modelu par → nowy ADR |
 | M03 | — | `PLANNED` | — | — |
 | M04 | — | `PLANNED` | — | — |
-| T001 | H01 | `PREREGISTERED` | — | — |
+| T001 | H01 | `WITHDRAWN` | **nieuruchomiony** — konstrukcja bez mocy na osiągnięcie własnych kryteriów (M02) | ADR-011 |
 | T002 | H02, H07 | `PLANNED` | — | — |
+| T003 | H01 | `PLANNED` | — | zastępuje T001, warunki w ADR-011 |
 
 ---
 
@@ -185,13 +186,31 @@ i audyt wyrównania znaczników czasu przed jakimkolwiek eksperymentem.
 
 ---
 
-## T001 — H01 Momentum, pomiar na wszystkich barach
+## T001 — H01 Momentum, pomiar na wszystkich barach · `WITHDRAWN`
 
-**Status:** `PREREGISTERED` · **nieuruchomiony** · warunek startu: M01–M04
+**Status:** `WITHDRAWN` (2026-09-23, **ADR-011**) · **nigdy nieuruchomiony**
+· **N bez zmian** — rejestr liczy wpisy `start`, a takiego nie było
 
-**Hipoteza:** H01 · **Typ:** confirmatory
+**Dlaczego wycofana.** M02 zmierzył, że ta konstrukcja nie ma mocy osiągnąć
+własnych kryteriów falsyfikacji. Przy h=10d MDE wynosi 0,085–0,146 R — bramki
+ADR-009 nie przechodzi przy **żadnym** modelu niezależności par, a `SUPPORTED`
+wymagałoby expectancy powyżej +0,10 R netto. Między progiem `FALSIFIED`
+a progiem `SUPPORTED` leży martwa strefa szerokości 0,064–0,185 R, w której
+zapada `NOT_SUPPORTED`. Najprawdopodobniejszym wynikiem było więc
+`NOT_SUPPORTED` niezależnie od tego, czy efekt istnieje — kosztem 6 prób.
 
-### Prerejestracja
+**Wycofanie było dopuszczalne**, bo M02 nie zaobserwował niczego, co dotyczy
+H01: nie liczył `mom_k` ani jego znaku, tylko czy cecha jest określona. Gdyby
+obejrzał cokolwiek zależnego od treści hipotezy, wycofanie prerejestracji
+byłoby wyborem kryterium pod wynik. Patrz ADR-011, sekcja o zabezpieczeniu.
+
+**Zastąpiona przez:** T003, którego prerejestracja musi spełnić cztery warunki
+z ADR-011.
+
+Prerejestracja poniżej zostaje **w niezmienionej postaci**, jako zapis tego,
+co było zadeklarowane. Nie jest edytowana.
+
+### Prerejestracja (wycofana, niezmieniona)
 
 | Pole | Wartość |
 |---|---|
@@ -246,3 +265,34 @@ zamrożonego configu, hash gita, hash danych, diff drzewa. Wpis w
 
 **Warunek.** Kryterium ilościowe „wnosi informację ponad" musi być ustalone
 w prerejestracji **przed** uruchomieniem, nie po zobaczeniu rozrzutu.
+
+---
+
+## T003 — H01 Momentum, konstrukcja przeprojektowana po M02
+
+**Status:** `PLANNED` — **nieprerejestrowany**. Zastępuje T001 (ADR-011).
+
+**Cel.** To samo pytanie co T001: czy `mom_k` niesie informację o zwrocie
+w przód, mierzone na wszystkich barach, bez warstwy portfelowej (ADR-002).
+Zmienia się wyłącznie konstrukcja pomiaru — mechanizm i hipoteza zostają.
+
+**Czego nie wolno odziedziczyć po T001.** Prerejestracja T003 musi spełnić
+cztery warunki z ADR-011, zanim cokolwiek zostanie uruchomione:
+
+| # | Warunek | Dlaczego |
+|---|---|---|
+| 1 | Jawna deklaracja modelu niezależności par i liczby P_eff | M02: wybór w nawiasie [2,0; 6,0] jest wart czynnika 1,7 na MDE |
+| 2 | Moc wyliczona z σ **zmierzonej** dla zadeklarowanej geometrii barier | σ zależy od geometrii; dziedziczona była 2× za mała |
+| 3 | Wykazanie, że progi falsyfikacji są osiągalne — martwa strefa wypisana | Inaczej `NOT_SUPPORTED` zapada niezależnie od tego, czy efekt istnieje |
+| 4 | Rozstrzygnięcie granicy okien wychodzących poza segment | T001 tego nie mówił; po wyniku byłby to parametr swobodny |
+
+**Kierunki przeprojektowania — do rozważenia, nic nie przesądzone.**
+Rezygnacja z h = 10 d (nie przechodzi bramki przy żadnym modelu par).
+Zmiana geometrii barier — przy obecnej TP pada w 5,5% przypadków, a 63%
+pozycji umiera na barierze czasowej, co jest rozrzutem wydanym bez
+informacji. Urealnienie progu +0,02 R w kryterium `FALSIFIED`. Każdy
+z tych wariantów zmienia σ i wymaga **nowego pomiaru mocy**, nie
+przeliczenia istniejącego.
+
+**Warunek startu.** M03, M04, warstwa etykiet, dwa testy na look-ahead,
+prerejestracja spełniająca ADR-011.

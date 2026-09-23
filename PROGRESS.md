@@ -31,7 +31,7 @@ z dowodem, bez osłabiania detektora (ADR-010).
 **Dług M01, niespłacony.** Warstwa etykiet (`triple_barrier.py`) niesie treść
 hipotezy i nie została przeniesiona; razem z nią odpadły **dwa testy na brak
 podglądania przyszłości przez symulator**. Ślad imienny w `tests/test_harness.py`.
-**Muszą wrócić przed T001** — to warunek, nie drobiazg.
+**Muszą wrócić przed T003** — to warunek, nie drobiazg.
 
 ---
 
@@ -56,31 +56,42 @@ CI z `market-quant` przez √n, co implikuje σ = 0,455 R. Zmierzona symulatorem
 na 8 000 wejść: **0,92 R** przy obu horyzontach. n_eff ADR-009 zgadł nieźle;
 pomylił się o 2× na rozrzucie.
 
-**Konsekwencja, której nie było w planie.** Przy h=10d T001 miałby **mniejszą
-moc niż eksperyment, który miał poprawić**: 0,146 R wobec 0,097 R
-`market-quant`, mimo 1,8× większego n_eff. Usunięcie warstwy portfelowej
-(ADR-002) odblokowało próbę i zarazem pełny rozrzut wyniku.
-
 **Wynik ostrzejszy od samej bramki (`INFERENCE`).** Kryteria falsyfikacji T001
-są w większości nieosiągalne. Przy h=3d `FALSIFIED` wymaga średniej < −0,036 R,
-a `SUPPORTED` > +0,056 R; przy h=10d odpowiednio < −0,082 R i **> +0,102 R**.
-Między tymi progami zapada `NOT_SUPPORTED` — a dryf kosztowy to już −0,031 R,
-więc umiarkowany realny efekt wyląduje w martwej strefie niemal na pewno.
-**Najprawdopodobniejszym wynikiem T001 w obecnej konstrukcji jest
-`NOT_SUPPORTED` niezależnie od tego, czy efekt istnieje** — kosztem 6 prób
-(N: 7 → 13).
+były w większości nieosiągalne. `SUPPORTED` wymagałoby średniej > +0,056 R
+(h=3d) lub **> +0,102 R** (h=10d), `FALSIFIED` — poniżej −0,036 / −0,082 R.
+Między tymi progami zapada `NOT_SUPPORTED`, a dryf kosztowy to już −0,031 R,
+więc umiarkowany realny efekt wpada w martwą strefę niemal na pewno. Przy
+h=10d T001 miałby przy tym **mniejszą moc niż eksperyment, który miał
+poprawić** (0,146 R wobec 0,097 R), mimo 1,8× większego n_eff.
 
 **Co jeszcze wyszło.** Sesja nie kupuje mocy: „wszystkie godziny" dokłada +72%
 wierszy i **zero** obserwacji niezależnych. Sześć par zachowuje się jak ~2
-niezależne rynki (średnie |ρ| = 0,40, wspólny czynnik USD). Prerejestracja
-T001 nie rozstrzyga, co z oknami wychodzącymi w OOS — luka do domknięcia.
+niezależne rynki (średnie |ρ| = 0,40, wspólny czynnik USD).
+
+---
+
+## Decyzja po M02 — ADR-011 (2026-09-23)
+
+**T001 wycofany przed uruchomieniem.** Konstrukcja nie ma mocy osiągnąć
+własnych kryteriów falsyfikacji, a przy h=10d nie przechodzi bramki ADR-009
+przy **żadnym** modelu niezależności par. H01 wraca do `PROPOSED` — hipoteza
+żyje, jej protokół nie. Zastępuje go **T003**, którego prerejestracja musi
+spełnić cztery warunki z ADR-011 (model par · σ zmierzona dla zadeklarowanej
+geometrii · osiągalne progi falsyfikacji · granica okien w OOS).
+
+**N pozostaje 7.** T001 nigdy nie wystartował, rejestr liczy wpisy `start`.
+
+Wycofanie było dopuszczalne, bo M02 nie obejrzał niczego, co dotyczy H01 —
+nie liczył `mom_k` ani jego znaku. Gdyby obejrzał, wycofanie prerejestracji
+byłoby wyborem kryterium pod wynik. **Każde przyszłe wycofanie wymaga tego
+samego dowodu, zapisanego w ADR.**
 
 ---
 
 ## Gdzie jesteśmy
 
-**Faza 1 w toku.** M01 zamknięty i przechodzi. M02 zamknięty, bramka
-nierozstrzygnięta. **T001 jest zablokowany do czasu decyzji** — patrz blokery.
+**Faza 1 w toku.** M01 zamknięty i przechodzi. M02 zamknięty — bramka
+nierozstrzygnięta, ale wynik pod nią wystarczył, żeby wycofać T001 (ADR-011).
 
 **Licznik prób: N = 7** (odziedziczone, ADR-004). Uruchomionych prób
 strategii w tym projekcie: **0**. M01 i M02 były krokami kontrolnymi
@@ -95,17 +106,19 @@ i nie liczą się do N.
 | # | Krok | Rozstrzyga |
 |---|---|---|
 | ~~1~~ | ~~**M01** — przeniesienie aparatury, świece, testy, raport jakości~~ | **ZAMKNIĘTY, PRZECHODZI** |
-| ~~2~~ | ~~**M02** — audyt mocy~~ | **ZAMKNIĘTY, NIEROZSTRZYGNIĘTY** — bramka zależy od decyzji, nie od pomiaru |
-| **2a** | **Decyzja: model niezależności par + próg 0,08 R** | **Czy T001 startuje.** Wymaga nowego ADR. **BLOKUJE wszystko dalej** |
-| 3 | **M03** — kalibracja kontrolą losową | Czy wynikowi negatywnemu będzie można wierzyć |
+| ~~2~~ | ~~**M02** — audyt mocy~~ | **ZAMKNIĘTY** — T001 wycofany (ADR-011) |
+| 3 | **M03** — kalibracja kontrolą losową | Czy wynikowi negatywnemu będzie można wierzyć. **Niezależne od kształtu T003** |
 | 4 | **M04** — domknięcie kontroli przesuniętych cech | Otwarte `UNKNOWN` po poprzedniku |
-| 5 | **T001** — H01 momentum, pomiar na wszystkich barach | Pytanie, na które `market-quant` nie miał mocy odpowiedzieć |
+| 5 | **Przeprojektowanie: prerejestracja T003** | Cztery warunki ADR-011. Każda zmiana geometrii barier wymaga **nowego pomiaru mocy**, nie przeliczenia |
+| 6 | **T003** — H01 momentum, konstrukcja przeprojektowana | Pytanie, na które `market-quant` nie miał mocy odpowiedzieć |
 
 Kroki M są kontrolami aparatury i **nie liczą się** do N w DSR.
 
-**Przed T001 trzeba dodatkowo:** zbudować warstwę etykiet od nowa (bez
-treści hipotezy w module), przywrócić dwa testy na brak look-ahead
-i **domknąć w prerejestracji granicę okien wychodzących w OOS** (M02).
+**Przed T003 trzeba dodatkowo:** zbudować warstwę etykiet od nowa (bez
+treści hipotezy w module) i przywrócić dwa testy na brak look-ahead.
+
+M03 i M04 nie zależą od tego, jak będzie wyglądał T003 — można je robić
+równolegle z przeprojektowaniem.
 
 ---
 
@@ -115,9 +128,9 @@ i **domknąć w prerejestracji granicę okien wychodzących w OOS** (M02).
 |---|---|
 | **Kohorta replikacyjna nie istnieje** | Zero bajtów dla XAUUSD, WTI, S&P 500, DAX. Replikacja niemożliwa → **żadna hipoteza nie osiągnie `SURVIVED`** w tej fazie (ADR-008). Najwyższy status: `SUPPORTED` |
 | **Segment RESEARCH był oglądany** | 7 prób poprzednika na tych samych danych. Poprzeczka DSR startuje podwyższona (ADR-004) |
-| **Moc jest za mała przy h=10d** | **ZMIERZONE w M02.** MDE 0,146 R — gorzej niż 0,097 R `market-quant`. Wąskim gardłem okazała się σ (0,92 R zamiast dziedziczonych 0,455), nie samo nakładanie okien |
-| **Bramka ADR-009 nierozstrzygnięta przy h=3d** | MDE 0,0796 wobec progu 0,08 R. Rozstrzyga wybór modelu niezależności par w nawiasie [2,0; 6,0] — **decyzja, nie pomiar**. Wymaga ADR przed T001 |
-| **Granica okien wychodzących w OOS** | Prerejestracja T001 mówi „decyzje do 2021-12-31" i nie rozstrzyga, co z `t1` w styczniu 2022. M02 przyjął wariant nietykający OOS. Do jawnej deklaracji przed T001 |
+| **Moc jest za mała przy h=10d** | **ZMIERZONE w M02.** MDE 0,085–0,146 R — bramki nie przechodzi przy żadnym modelu par, gorzej niż 0,097 R `market-quant`. Wąskim gardłem okazała się σ (0,92 R zamiast dziedziczonych 0,455), nie samo nakładanie okien |
+| **Model niezależności par nierozstrzygnięty** | Nawias [2,0; 6,0] ciasny matematycznie, ale wybór punktu to decyzja. Wart czynnika 1,7 na MDE. **T003 musi go zadeklarować jawnie** (ADR-011, warunek 1) |
+| **Granica okien wychodzących w OOS** | T001 mówił „decyzje do 2021-12-31" i nie rozstrzygał, co z `t1` w styczniu 2022. M02 przyjął wariant nietykający OOS. **T003 musi to zadeklarować** (ADR-011, warunek 4) |
 | **Rentowności 2-letnie** `UNKNOWN` | Brak spójnej definicji dla wszystkich walut. Blokuje H04 |
 | **Marża swapu** `UNKNOWN` | Jedyna liczba w modelu kosztów bez sparsowanego źródła → obowiązkowa oś wrażliwości zamiast wartości punktowej |
 | **Kontrola przesuniętych cech** `UNKNOWN` | U poprzednika dała wynik lepszy od baseline. Wyjaśnione szumem przy ich mocy; do domknięcia w M04 |
@@ -128,7 +141,7 @@ i **domknąć w prerejestracji granicę okien wychodzących w OOS** (M02).
 
 ## Czego NIE robimy
 
-- Nie uruchamiamy backtestu przed M01–M04.
+- Nie uruchamiamy backtestu przed M03, M04 i prerejestracją spełniającą ADR-011.
 - Nie dodajemy ML — dopóki nie wiadomo, czy istnieje prosty efekt.
 - Nie mnożymy hipotez, żeby uniknąć wyniku negatywnego.
 - Nie otwieramy segmentu 2024–2026.
