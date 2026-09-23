@@ -381,3 +381,102 @@ def test_unsorted_bars_are_rejected_instead_of_silently_mis_sliced():
     with pytest.raises(ValueError, match="posortowane"):
         simulate_trade(Side.LONG, T0, sl=1.0900, tp=1.1100,
                        time_barrier=T0 + dt.timedelta(minutes=5), m1=bars, cost=NO_FLOOR)
+
+
+# --- BRAK PODGLĄDANIA PRZYSZŁOŚCI -------------------------------------------
+#
+# PRZYWRÓCONE (dług M01). Oryginały w `market-quant` szpiegowały, jaką ramkę
+# warstwa etykiet podaje symulatorowi, więc zależały od `triple_barrier.py`,
+# którego nie przenieśliśmy — i razem z nim wypadły z pakietu.
+#
+# Tutaj ta sama własność jest sprawdzana OBSERWOWALNIE: psujemy ceny poza
+# oknem transakcji i żądamy, żeby wynik nie drgnął. To jest mocniejsze niż
+# podglądanie wywołania — szpieg pilnuje, co dostał symulator, a to pilnuje,
+# czego symulator UŻYŁ. `simulate_trade` tnie okno sam (`slice_window`), więc
+# własność należy do niego, nie do warstwy etykiet.
+
+PRICE_COLS = ("bid_open", "bid_high", "bid_low", "bid_close",
+              "ask_open", "ask_high", "ask_low", "ask_close")
+
+
+def _corrupt(bars: pl.DataFrame, *, after=None, before=None,
+             value: float = 77.0) -> pl.DataFrame:
+    """Zastąp ceny poza oknem wartością absurdalną, zachowując oś czasu."""
+    cond = None
+    if after is not None:
+        cond = pl.col("ts") > after
+    if before is not None:
+        c = pl.col("ts") < before
+        cond = c if cond is None else (cond | c)
+    return bars.with_columns(
+        [pl.when(cond).then(pl.lit(value)).otherwise(pl.col(c)).alias(c)
+         for c in PRICE_COLS]
+    )
+
+
+def _sweep(side, rng, n=150, bars_per_case=120, barrier_minutes=60):
+    """Losowe przebiegi z pokryciem różnych powodów wyjścia."""
+    for _ in range(n):
+        bars = m1(_random_walk(rng, bars_per_case))
+        dist = rng.uniform(2, 40) * PIP
+        entry = 1.1000
+        sl, tp = (entry - dist, entry + dist) if side is Side.LONG else \
+                 (entry + dist, entry - dist)
+        yield bars, sl, tp, T0 + dt.timedelta(minutes=barrier_minutes)
+
+
+@pytest.mark.parametrize("side", [Side.LONG, Side.SHORT])
+def test_simulator_sees_only_the_trade_window(side):
+    """Ceny PO barierze czasowej nie mogą wpłynąć na nic.
+
+    Upadek tego testu oznacza, że wynik zależy od przyszłości — czyli
+    backtest zna odpowiedź, zanim ją policzy.
+    """
+    import numpy as np
+    rng = np.random.default_rng(20260923)
+    reasons = set()
+    for bars, sl, tp, t1 in _sweep(side, rng):
+        base = simulate_trade(side, T0, sl, tp, t1, bars, NO_FLOOR)
+        blind = simulate_trade(side, T0, sl, tp, t1, _corrupt(bars, after=t1), NO_FLOOR)
+        assert base == blind
+        reasons.add(base.reason)
+    assert len(reasons) >= 2, "przebieg ma pokryć więcej niż jeden powód wyjścia"
+
+
+@pytest.mark.parametrize("side", [Side.LONG, Side.SHORT])
+def test_simulator_ignores_bars_before_the_decision(side):
+    """Historia sprzed decyzji też nie ma prawa wejść do wyniku.
+
+    Symetryczna strona tej samej własności: okno jest domknięte z obu stron.
+    """
+    import numpy as np
+    rng = np.random.default_rng(20260924)
+    # Decyzja 15 minut po początku ramki: bary wcześniejsze istnieją, ale
+    # leżą poza oknem i nie mają prawa niczego zmienić.
+    decision = T0 + dt.timedelta(minutes=15)
+    for bars, sl, tp, t1 in _sweep(side, rng, n=80):
+        base = simulate_trade(side, decision, sl, tp, t1, bars, NO_FLOOR)
+        blind = simulate_trade(side, decision, sl, tp, t1,
+                               _corrupt(bars, before=decision), NO_FLOOR)
+        assert base == blind
+
+
+@pytest.mark.parametrize("side", [Side.LONG, Side.SHORT])
+def test_windowed_labels_match_simulation_on_full_history(side):
+    """Wycięcie okna przed wywołaniem nie zmienia wyniku, tylko koszt obliczeń.
+
+    Skrypty badawcze (M02, M03) tną M1 do `[decyzja, bariera]` zanim wołają
+    symulator. Gdyby to wycięcie cokolwiek zmieniało, wyniki z tych skryptów
+    nie byłyby porównywalne z przebiegiem na pełnej historii.
+    """
+    import numpy as np
+    from src.data.resample import slice_window
+    rng = np.random.default_rng(20260925)
+    reasons = set()
+    for bars, sl, tp, t1 in _sweep(side, rng):
+        full = simulate_trade(side, T0, sl, tp, t1, bars, NO_FLOOR)
+        windowed = simulate_trade(side, T0, sl, tp, t1,
+                                  slice_window(bars, T0, t1), NO_FLOOR)
+        assert full == windowed
+        reasons.add(full.reason)
+    assert len(reasons) >= 2

@@ -50,18 +50,19 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.data.resample import decision_time_for_bar, last_closed_bar, slice_window  # noqa: E402
-from src.data.timeaxis import add_business_days  # noqa: E402
+from src.data.resample import slice_window  # noqa: E402
 from src.execution.simulator import Side, simulate_trade  # noqa: E402
-from src.features.volatility import atr_d1, atr_h1, attach_atr_d1  # noqa: E402
 from src.harness.market import (  # noqa: E402
     cost_model_for, load_h1, load_m1, require_fresh_bars,
 )
 from src.harness.registry import start_run  # noqa: E402
+from src.research.grid import (  # noqa: E402
+    decision_grid as build_grid, in_session as session_filter, session_hours,
+    with_horizon as add_horizon,
+)
 from src.validation.overlap import effective_sample_size, overlap_fraction  # noqa: E402
 
 UTC = dt.timezone.utc
-H1_SECONDS = 3600
 
 # --- parametry pomiaru, wszystkie z prerejestracji T001 lub z base.yaml ----
 
@@ -96,111 +97,31 @@ def load_config() -> dict:
     return yaml.safe_load((ROOT / "configs" / "base.yaml").read_text(encoding="utf-8"))
 
 
-def map_ts(col: str, fn) -> pl.Expr:
-    """Zastosuj funkcję osi czasu do kolumny znaczników.
-
-    `datetime` Pythona ma rozdzielczość mikrosekundową, bary — milisekundową,
-    więc wynik wraca w „us" i jest rzutowany z powrotem. Opakowane, bo
-    alternatywą jest arytmetyka na znacznikach wprost w wyrażeniu, czyli
-    dokładnie to, czego zakazuje CLAUDE.md.
-    """
-    return (
-        pl.col(col)
-        .map_elements(fn, return_dtype=pl.Datetime("us", "UTC"))
-        .cast(pl.Datetime("ms", "UTC"))
-    )
-
 
 # --------------------------------------------------------------------------
 # Siatka decyzyjna
 # --------------------------------------------------------------------------
 
 def decision_grid(symbol: str, cfg: dict) -> tuple[pl.DataFrame, pl.DataFrame, dict]:
-    """Decyzje T001 dla jednej pary: (siatka, ceny H1, diagnostyka).
-
-    Zwraca wyłącznie momenty decyzji i ceny odniesienia. Żadnej cechy,
-    żadnego kierunku — tylko to, KIEDY zapadałaby decyzja.
-    """
-    period = cfg["volatility"]["atr_period"]
-    min_h1 = cfg["data"]["d1_boundary"]["min_h1_bars"]
-
+    """Siatka decyzyjna T001 dla jednej pary — parametry z konfiguracji."""
     h1 = load_h1(symbol, WARMUP_START, RESEARCH_END, cfg)
-    h1 = atr_h1(h1, period)
-    d1 = atr_d1(h1, min_h1, period)
-
-    dec = (
-        h1.with_row_index("bar_i")
-        .select("bar_i", "ts", "bid_close", "atr_h1_14")
-        .filter(
-            (pl.col("bar_i") >= MOM_LOOKBACK_MAX)
-            & pl.col("atr_h1_14").is_not_nan()
-            & pl.col("atr_h1_14").is_not_null()
-            & (pl.col("atr_h1_14") > 0)
-        )
-        .with_columns(
-            map_ts("ts", lambda t: decision_time_for_bar(t, H1_SECONDS))
-            .alias("ts_decision")
-        )
-        .rename({"ts": "bar_ts", "bid_close": "ref_price"})
-        .filter(pl.col("ts_decision") >= FIRST_DECISION)
+    return build_grid(
+        h1,
+        first_decision=FIRST_DECISION,
+        lookback_bars=MOM_LOOKBACK_MAX,
+        atr_period=cfg["volatility"]["atr_period"],
+        min_h1_bars=cfg["data"]["d1_boundary"]["min_h1_bars"],
     )
-
-    n_before_atr = dec.height
-    dec = attach_atr_d1(dec, d1, on="ts_decision").filter(
-        pl.col("atr_d1_14").is_not_null()
-        & pl.col("atr_d1_14").is_not_nan()
-        & (pl.col("atr_d1_14") > 0)
-    )
-
-    prices = h1.select(pl.col("ts").alias("px_ts"), pl.col("bid_close").alias("exit_price"))
-    diag = {
-        "h1_bars_total": h1.height,
-        "decisions_feature_defined": n_before_atr,
-        "decisions_atr_d1_defined": dec.height,
-        "dropped_no_atr_d1": n_before_atr - dec.height,
-    }
-    return dec, prices, diag
 
 
 def with_horizon(dec: pl.DataFrame, prices: pl.DataFrame, h: int) -> pl.DataFrame:
-    """Dołóż barierę czasową `t1`, cenę wyjścia i target A.
-
-    Okna wychodzące poza segment RESEARCH są odcinane. Decyzja z 28.12.2021
-    przy h = 10 d rozstrzyga się w styczniu 2022, czyli w segmencie OOS —
-    a OOS ma reżim ograniczonych uruchomień. Prerejestracja T001 mówi
-    „decyzje do 2021-12-31" i tej granicy nie rozstrzyga; tutaj wybieramy
-    wariant, który NIE dotyka OOS, i zgłaszamy to jako lukę do domknięcia.
-    """
-    out = (
-        dec.with_columns(
-            map_ts("ts_decision", lambda t: add_business_days(t, h)).alias("t1")
-        )
-        .filter(pl.col("t1") <= RESEARCH_END)
-    )
-    # Cena wyjścia z ostatniego bara ZAMKNIĘTEGO przed barierą. Bar o etykiecie
-    # równej t1 zamyka się dopiero godzinę później — jego użycie to look-ahead.
-    out = (
-        out.with_columns(
-            map_ts("t1", lambda t: last_closed_bar(t, H1_SECONDS)).alias("exit_bar")
-        )
-        .sort("exit_bar")
-        .join_asof(prices.sort("px_ts"), left_on="exit_bar", right_on="px_ts",
-                   strategy="backward")
-        .sort("ts_decision")
-    )
-    return out.with_columns(
-        ((pl.col("exit_price") - pl.col("ref_price")) / pl.col("atr_d1_14"))
-        .alias("fwd_atr")
-    )
+    """Bariera czasowa `t1` i target A, z odcięciem okien wychodzących w OOS."""
+    return add_horizon(dec, prices, h, segment_end=RESEARCH_END)
 
 
 def in_session(df: pl.DataFrame, cfg: dict) -> pl.DataFrame:
     """Sesja primary: decyzje w [08:00, 22:00) UTC — 14 na dobę handlową."""
-    s = cfg["validation"]["sessions"]["primary"]
-    start_h = int(str(s["start"]).split(":")[0])
-    end_h = int(str(s["end"]).split(":")[0])
-    hour = pl.col("ts_decision").dt.hour()
-    return df.filter((hour >= start_h) & (hour < end_h))
+    return session_filter(df, *session_hours(cfg))
 
 
 # --------------------------------------------------------------------------

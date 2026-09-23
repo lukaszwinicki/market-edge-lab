@@ -16,12 +16,12 @@ projekcie: **0**.
 | ID | Hipoteza | Status | Wynik | Decyzja |
 |---|---|---|---|---|
 | M01 | — | `CLOSED` | **PRZECHODZI** — port identyczny co do bitu, 173 testy, raport jakości zdany | KEEP |
-| M02 | — | `CLOSED` | **NIEROZSTRZYGNIĘTE** — h=10d bramkę przekracza, h=3d siada na progu (0,0796 vs 0,08) | decyzja o modelu par → nowy ADR |
-| M03 | — | `PLANNED` | — | — |
-| M04 | — | `PLANNED` | — | — |
+| M02 | — | `CLOSED` | **NIEROZSTRZYGNIĘTE** — h=10d bramkę przekracza, h=3d siada na progu (0,0796 vs 0,08) | ADR-011: T001 wycofany |
+| M03 | — | `CLOSED` | **PRZECHODZI** — expectancy losowych wejść = −koszt w granicach 1 SE; symulator nie zna swapu | KEEP |
+| M04 | — | `BLOCKED` | — | ADR-012: nie może ruszyć przed zamrożeniem prerejestracji T003 |
 | T001 | H01 | `WITHDRAWN` | **nieuruchomiony** — konstrukcja bez mocy na osiągnięcie własnych kryteriów (M02) | ADR-011 |
 | T002 | H02, H07 | `PLANNED` | — | — |
-| T003 | H01 | `PLANNED` | — | zastępuje T001, warunki w ADR-011 |
+| T003 | H01 | `PLANNED` | — | zastępuje T001, 6 warunków: ADR-011 + ADR-012 |
 
 ---
 
@@ -64,13 +64,20 @@ jawnie z dowodem, detektor nietknięty → **ADR-010**.
 Trzy godziny odziedziczone po poprzedniku potwierdzone naszym przebiegiem:
 detektor wskazał dokładnie je i żadnej innej.
 
-### Dług — do spłaty przed T001
+### Dług — SPŁACONY w M03 (2026-09-23)
 
 Warstwa etykiet nie została przeniesiona (niesie treść hipotezy), a razem
 z nią odpadły **dwa testy na brak podglądania przyszłości przez symulator**:
 `test_simulator_sees_only_the_trade_window` i
-`test_windowed_labels_match_simulation_on_full_history`. Ślad imienny
-w `tests/test_harness.py`. **Warunek startu T001.**
+`test_windowed_labels_match_simulation_on_full_history`.
+
+**Opis długu był pomyłkowy.** Oryginały szpiegowały, jaką ramkę podaje
+symulatorowi `triple_barrier.py`, ale sama własność należy do symulatora —
+`simulate_trade` tnie okno samodzielnie (`simulator.py:146`). Oba testy
+wróciły w M03 do `tests/test_simulator.py`, bez warstwy etykiet i w wersji
+obserwowalnej (psucie cen poza oknem), plus trzeci na domknięcie okna od
+strony przeszłości. Warstwa etykiet pozostaje do zbudowania dla T003, ale
+**nie blokuje już testów na look-ahead**.
 
 **Decyzja: KEEP.** Aparatura działa i jest zweryfikowana. Przechodzimy do M02.
 
@@ -157,7 +164,7 @@ Dług warstwy etykiet i dwóch testów na look-ahead jest niezmieniony.
 
 ---
 
-## M03 — Kalibracja przyrządu kontrolą losową
+## M03 — Kalibracja przyrządu kontrolą losową · `CLOSED` · **PRZECHODZI**
 
 **Cel.** Odpowiednik bramek 0 i 1 poprzednika: losowe wejścia przy identycznej
 mechanice muszą dać expectancy ≈ −koszt, a strata musi być istotna.
@@ -169,12 +176,88 @@ modelowanego kosztu; CI95 leży pod zerem; wynik ujemny przy koszcie 1×, 2×, 3
 się odróżnić „nie ma przewagi" od „przyrząd nie potrafi jej pokazać". To jest
 element, który sprawił, że wynikowi `market-quant` można wierzyć.
 
+### Wynik (2026-09-23) · `20260923T175353Z-087adf` · raport: `reports/m03_random_control.md`
+
+200 replikacji × 500 wejść × 2 horyzonty = **197 847 transakcji**. Losowany
+moment **i** kierunek, niezależnie od siebie.
+
+| | h = 3 d | h = 10 d |
+|---|---|---|
+| Expectancy | **−0,0248 R** (t = −4,90) | **−0,0191 R** (t = −2,41) |
+| CI95 | [−0,0347; −0,0147] | [−0,0347; −0,0035] |
+| Koszt modelowany | 0,0297 R | 0,0169 R |
+| Luka | +0,0049 R (**0,97 SE**) | −0,0022 R (**0,28 SE**) |
+| CI95 < 0 przy 1×/2×/3× | ✅ | ✅ |
+
+**PRZECHODZI.** Expectancy zgadza się z kosztem w granicach jednego błędu
+standardowego. Przyrząd nie produkuje przewagi tam, gdzie jej nie ma.
+
+### Wynik, którego nie było w planie: symulator nie zna swapu
+
+`CostModel` implementuje spread, podłogę i poślizg. **Swapu nie ma wcale**,
+choć prerejestracja T001 deklarowała oś marży, a config trzyma
+`costs.swap.margin_sensitivity`, której nic nie czytało.
+
+| Marża roczna | h = 3 d | h = 10 d |
+|---|---|---|
+| 1,0% | 0,0124 R (0,42× koszt modelowany) | **0,0223 R (1,32×)** |
+| 2,0% | 0,0249 R (0,84×) | 0,0446 R (**2,64×**) |
+
+Przy h = 10 d brakujący człon jest **większy niż cały modelowany koszt** —
+i większy niż próg +0,02 R, wobec którego T001 miał być oceniany.
+
+`INFERENCE`: **przewaga kosztowa długiego horyzontu jest artefaktem pominięcia
+swapu.** Stosunek kosztu h=3d/h=10d wynosi 1,76× dla kosztu modelowanego
+(zgodnie z szacunkiem ADR-009: 1,9×), ale **1,08×** po doliczeniu
+finansowania. Skoro cena za transakcję wyrównuje się, zostaje różnica w mocy —
+trzykrotna na korzyść h = 3 d (M02: n_eff 1 040 wobec 315). Przy pełnym
+koszcie **h = 3 d dominuje h = 10 d na obu osiach**. Przesłanka do T003,
+nie decyzja.
+
+### Diagnostyka warta zapamiętania
+
+**Co trzeci–czwarty przebieg bez informacji wychodzi na plus.** Expectancy
+pojedynczego przebiegu 500 transakcji ma odchylenie 0,041 R; ujemnych jest
+75% (h=3d) i 67% (h=10d). To jest rozkład, względem którego T003 musi się
+wykazać.
+
+**Pułapka `effective_sample_size`.** Policzone na ramce ze wszystkimi parami
+naraz dało 521 i 156 — tyle, ile M02 zmierzył dla JEDNEJ pary. Zachłanne
+szukanie rozłącznych okien działa na jednej osi czasu; wymiar przekrojowy
+trzeba domnożyć osobno. Użycie wprost zaniża n_eff dwukrotnie.
+
+### Czego M03 nie zrobił
+
+Nie jest kontrolą dopasowaną liczbą obserwacji do przebiegu strategii — taka
+należy do przebiegu, z którym się porównuje, a porównywać nie ma z czym.
+Nie liczył żadnej cechy. Nie wpiął swapu w symulator: to zadanie T003
+i wymaga powtórzenia kalibracji.
+
+**Dług M01 spłacony** — trzy testy na brak podglądania przyszłości wróciły do
+`tests/test_simulator.py`, bez warstwy etykiet. Opis długu był pomyłkowy:
+własność należy do symulatora, nie do `triple_barrier.py`.
+
 ---
 
-## M04 — Domknięcie kontroli przesuniętych cech
+## M04 — Domknięcie kontroli przesuniętych cech · `BLOCKED` (ADR-012)
 
-**Cel.** Sprawdzić przy pełnej mocy, czy cechy postarzone o jeden bar dają
-wynik **gorszy** niż baseline, jak powinny.
+> **Postać z fazy 0 nie może wystartować.** Porównanie baseline z cechą
+> postarzoną wymaga policzenia `mom_k`, czyli **oceny sygnału H01**. To (a)
+> klasyfikuje przebieg jako `strategy` i dolicza go do N, (b) pokazuje
+> expectancy H01, zanim T003 zostanie prerejestrowany — a prerejestracja
+> pisana po zobaczeniu wyniku nie jest prerejestracją.
+>
+> W planie z fazy 0 kolejność była bezpieczna, bo T001 był już zamrożony.
+> **Wycofanie T001 (ADR-011) usunęło tę ochronę.**
+>
+> **Nowa postać (ADR-012):** cechy syntetyczne o znanej zawartości
+> informacyjnej — szum, wyrocznia, wyrocznia postarzona. Nie dotyka `mom_k`,
+> zostaje `control`, może ruszyć od zaraz. Porównanie na cesze prawdziwej
+> przenosi się do T003 jako prerejestrowane ramię kontrolne.
+
+**Cel (postać z fazy 0, zachowany jako zapis).** Sprawdzić przy pełnej mocy,
+czy cechy postarzone o jeden bar dają wynik **gorszy** niż baseline, jak
+powinny.
 
 **Kontekst.** W `market-quant` ta kontrola dała wynik **lepszy** (−0,0268 vs
 −0,0560 R). Tamto wyjaśnienie — szum przy połowie CI 0,067 R — było poprawne
@@ -277,7 +360,8 @@ w przód, mierzone na wszystkich barach, bez warstwy portfelowej (ADR-002).
 Zmienia się wyłącznie konstrukcja pomiaru — mechanizm i hipoteza zostają.
 
 **Czego nie wolno odziedziczyć po T001.** Prerejestracja T003 musi spełnić
-cztery warunki z ADR-011, zanim cokolwiek zostanie uruchomione:
+sześć warunków, zanim cokolwiek zostanie uruchomione — cztery z ADR-011,
+dwa dołożone po M03 (ADR-012 i pomiar kosztu):
 
 | # | Warunek | Dlaczego |
 |---|---|---|
@@ -285,14 +369,20 @@ cztery warunki z ADR-011, zanim cokolwiek zostanie uruchomione:
 | 2 | Moc wyliczona z σ **zmierzonej** dla zadeklarowanej geometrii barier | σ zależy od geometrii; dziedziczona była 2× za mała |
 | 3 | Wykazanie, że progi falsyfikacji są osiągalne — martwa strefa wypisana | Inaczej `NOT_SUPPORTED` zapada niezależnie od tego, czy efekt istnieje |
 | 4 | Rozstrzygnięcie granicy okien wychodzących poza segment | T001 tego nie mówił; po wyniku byłby to parametr swobodny |
+| 5 | **Ramię kontrolne: cecha vs cecha postarzona o jeden bar**, z kryterium ustalonym przed uruchomieniem | ADR-012 — dawne M04; osobny przebieg spaliłby próbę za diagnostykę przebiegu głównego |
+| 6 | **Model kosztu z członem swapu**, albo jawne uzasadnienie pominięcia | M03: przy h=10d brakująca marża to 1,32× cały modelowany koszt |
 
 **Kierunki przeprojektowania — do rozważenia, nic nie przesądzone.**
-Rezygnacja z h = 10 d (nie przechodzi bramki przy żadnym modelu par).
+Rezygnacja z h = 10 d: nie przechodzi bramki przy żadnym modelu par, a po
+M03 traci też jedyną przewagę, jaką miał — po doliczeniu swapu kosztuje na
+transakcję tyle samo co h = 3 d (0,0392 wobec 0,0422 R), dając 3× mniej
+obserwacji niezależnych.
 Zmiana geometrii barier — przy obecnej TP pada w 5,5% przypadków, a 63%
 pozycji umiera na barierze czasowej, co jest rozrzutem wydanym bez
 informacji. Urealnienie progu +0,02 R w kryterium `FALSIFIED`. Każdy
 z tych wariantów zmienia σ i wymaga **nowego pomiaru mocy**, nie
 przeliczenia istniejącego.
 
-**Warunek startu.** M03, M04, warstwa etykiet, dwa testy na look-ahead,
-prerejestracja spełniająca ADR-011.
+**Warunek startu.** ~~M03~~ (PRZECHODZI), ~~testy na look-ahead~~ (spłacone
+w M03), M04 w nowej postaci (ADR-012), warstwa etykiet, prerejestracja
+spełniająca sześć warunków powyżej.

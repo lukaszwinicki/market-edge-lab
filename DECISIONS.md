@@ -490,3 +490,92 @@ prerejestracji wymaga tego samego dowodu, zapisanego w ADR.
   — wymóg audytu mocy przed eksperymentem — zostaje w mocy i właśnie zadziałał.
 * M03 i M04 pozostają konieczne i nie zależą od kształtu T003.
 * Dług M01 (warstwa etykiet, dwa testy na look-ahead) jest niezmieniony.
+
+---
+
+## ADR-012 — M04 nie może wystartować przed zamrożeniem prerejestracji T003; zmienia postać na test z zasianym błędem
+
+**Status:** ACCEPTED · 2026-09-23 · **Wykryte w:** M03 · **Konsekwencja:** ADR-011
+
+**Decyzja.** Dwie rzeczy naraz:
+
+1. **M04 w postaci zaplanowanej w fazie 0 nie może zostać uruchomiony**,
+   dopóki prerejestracja T003 nie jest zamrożona i zahashowana.
+2. **M04 zmienia postać**: zamiast porównywać `mom_k` z `mom_k` postarzonym
+   o jeden bar, sprawdza przyrząd na **cechach syntetycznych o znanej
+   zawartości informacyjnej**. Porównanie na cesze prawdziwej przenosi się
+   do wnętrza T003 jako prerejestrowane ramię kontrolne.
+
+**Powód — punkt 1.** M04 miał porównać wynik baseline z wynikiem cech
+postarzonych o jeden bar. Baseline to `mom_k` puszczony przez symulator,
+czyli **ocena sygnału H01**. Z tego płyną dwie konsekwencje, z których
+druga jest nieodwracalna:
+
+* Rejestr prób klasyfikuje takie uruchomienie jako `strategy`, nie `control`
+  — „kontrola, która ocenia sygnał, jest przebiegiem `strategy` niezależnie
+  od celu" (`harness/registry.py`, reguła odziedziczona z ADR-029). M04
+  liczyłby się więc do N, wbrew założeniu „seria M nie liczy się do N".
+* M04 pokazałby expectancy H01 **zanim T003 zostanie prerejestrowany**.
+  Prerejestracja pisana po zobaczeniu wyniku nie jest prerejestracją.
+
+**Czego nie zauważył ADR-011.** W planie z fazy 0 kolejność M04 → T001 była
+bezpieczna, bo T001 był już prerejestrowany i zamrożony — zobaczenie wyniku
+nie mogło zmienić deklaracji, która już istniała. **Wycofanie T001 usunęło
+tę ochronę.** Od momentu, w którym H01 nie ma żywej prerejestracji, każdy
+przebieg dotykający `mom_k` skaża przyszłą prerejestrację. ADR-011 tego nie
+zapisał; ADR-012 to domyka.
+
+**Powód — punkt 2.** Pytanie M04 brzmi „czy w pipelinie jest przesunięcie
+o jeden bar", a nie „czy momentum działa". Konstrukcja z fazy 0 mieszała
+te dwa pytania: porównywała dwa warianty cechy, której zawartość
+informacyjna jest **nieznana**, więc oczekiwany kierunek różnicy też był
+nieznany. Dlatego anomalia u poprzednika (wynik z cechami postarzonymi
+**lepszy**: −0,0268 wobec −0,0560 R) nie dała się rozstrzygnąć i została
+odłożona jako szum.
+
+Na cechach syntetycznych oczekiwany kierunek jest znany **z konstrukcji**:
+
+| Ramię | Cecha | Wynik, który MUSI wyjść |
+|---|---|---|
+| szum | kierunek z ziarna, zero informacji z cen | ≈ −koszt (to samo co M03) |
+| wyrocznia | kierunek = znak faktycznego zwrotu przez okno | silnie dodatni |
+| wyrocznia postarzona | ta sama, ale z okna zamkniętego przed decyzją | ≈ −koszt |
+
+Ramię „wyrocznia" jest **kontrolą dodatnią**: dowodzi, że przyrząd w ogóle
+potrafi zobaczyć informację, gdy ta jest. Konstrukcja z fazy 0 takiej kontroli
+nie miała — sprawdzała tylko, czy przyrząd czegoś NIE widzi, a to spełnia
+również przyrząd zepsuty na głucho.
+
+**Alternatywy.**
+
+(a) *Uruchomić M04 jak zaplanowano i przyjąć, że liczy się do N.* Odrzucone:
+koszt w liczniku byłby najmniejszym problemem. Skażenia prerejestracji T003
+nie da się cofnąć ani zmierzyć.
+
+(b) *Uruchomić M04 po zamrożeniu prerejestracji T003, w postaci z fazy 0.*
+Odrzucone jako krok osobny, przyjęte jako **ramię wewnątrz T003**: jeśli
+cecha i tak musi być policzona, osobny przebieg wyłącznie po to, żeby ją
+porównać z jej własnym opóźnieniem, spala próbę za diagnostykę, która
+należy do przebiegu głównego.
+
+(c) *Zrezygnować z M04, skoro testy jednostkowe na wyrównanie znaczników już
+istnieją* (`test_grid.py`, `test_volatility.py`, trzy testy w
+`test_simulator.py` przywrócone w M03). Odrzucone: testy jednostkowe pilnują
+punktów, w których wyrównanie jest **jawne**. M04 pilnuje **złożenia** —
+i tylko on może wykryć błąd powstały na styku modułów, z których każdy
+z osobna jest poprawny.
+
+**Konsekwencje.**
+
+* M04 → `BLOCKED`, z warunkiem odblokowania: zamrożona prerejestracja T003
+  **albo** przejście na postać z cechami syntetycznymi. Ta druga droga jest
+  otwarta od zaraz, bo nie dotyka `mom_k`.
+* M04 w nowej postaci pozostaje `control` i **nie liczy się do N**. Gdyby
+  kiedykolwiek wrócił do porównywania cech prawdziwych, staje się `strategy`.
+* Porównanie „cecha vs cecha postarzona" staje się **obowiązkowym ramieniem
+  prerejestracji T003**, z kryterium zapisanym przed uruchomieniem. To piąty
+  warunek T003, obok czterech z ADR-011.
+* Reguła ogólna, szersza niż M04: **dopóki hipoteza nie ma żywej, zamrożonej
+  prerejestracji, żaden przebieg nie może dotknąć jej cechy** — także
+  przebieg nazwany kontrolą. Klasyfikacja `control`/`strategy` idzie za tym,
+  co przebieg ogląda, nie za tym, po co go uruchomiono.

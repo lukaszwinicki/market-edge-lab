@@ -278,13 +278,18 @@ def test_slice_window_between_bars_and_outside_data():
     assert slice_window(m1, T0 + dt.timedelta(minutes=5), T0).is_empty()
 
 
-# USUNIETE PRZY PRZENOSZENIU (ADR-005) — do przywrocenia razem z warstwa etykiet:
+# SPLACONE (M03, 2026-09-23). Oba testy zyja teraz w tests/test_simulator.py:
 #   test_simulator_sees_only_the_trade_window
 #   test_windowed_labels_match_simulation_on_full_history
-# Oba testuja BRAK PODGLADANIA PRZYSZLOSCI przez symulator i sa wymagane
-# przed pierwszym eksperymentem. Zalezne od src/labels/triple_barrier.py,
-# ktory niesie tresc hipotezy i dlatego nie zostal przeniesiony.
-# Slad w PROGRESS.md, sekcja M01.
+#   test_simulator_ignores_bars_before_the_decision   (dolozony)
+#
+# Dlug byl opisany jako zalezny od src/labels/triple_barrier.py, ale byl to
+# opis pomylkowy: oryginaly SZPIEGOWALY, jaka ramke warstwa etykiet podaje
+# symulatorowi, a wlasciwa wlasnosc nalezy do samego symulatora — on tnie
+# okno sam (simulate_trade -> slice_window). Przywrocone wersje sprawdzaja ja
+# obserwowalnie: psuja ceny poza oknem i zadaja, zeby wynik nie drgnal.
+# To nie wymaga warstwy etykiet i jest mocniejsze niz szpieg — szpieg pilnuje,
+# co symulator DOSTAL, a to pilnuje, czego UZYL.
 
 # --- dane: pieczęć hold-outu i partycje ---------------------------------------
 
