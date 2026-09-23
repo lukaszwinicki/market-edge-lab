@@ -1,0 +1,40 @@
+# UWAGA — wiodący ukośnik jest obowiązkowy przy katalogach danych.
+# Wpis "data/" bez ukośnika dopasowuje KAŻDY katalog o tej nazwie na dowolnej
+# głębokości, więc zignorowałby również src/data/ — czyli kod. Ta pomyłka
+# zdarzyła się w market-quant. Przed commitem: git add -A --dry-run
+
+# --- dane: nigdy do repozytorium ---------------------------------------
+/data/
+*.parquet
+*.csv
+*.bi5
+
+# --- wyniki przebiegów: odtwarzalne z configu + hasha gita -------------
+/runs/
+
+# --- środowisko --------------------------------------------------------
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# --- sekrety -----------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# --- narzędzia i system ------------------------------------------------
+.ipynb_checkpoints/
+.DS_Store
+*.swp
+*~
+
+# --- WYJĄTEK: rejestr prób JEST wersjonowany ---------------------------
+# Bez historii prób Deflated Sharpe Ratio nie znaczy nic.
+!/trials/
+!/trials/trials.jsonl

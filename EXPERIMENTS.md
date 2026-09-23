@@ -1,0 +1,146 @@
+# EXPERIMENTS.md — indeks eksperymentów
+
+Ten plik jest **indeksem**. Szczegóły każdego przebiegu żyją w `runs/<id>/`,
+a maszynowy zapis w `trials/trials.jsonl`.
+
+**Seria M** = sprawdzenia aparatury (kontrole). Nie liczą się do N w DSR.
+**Seria T** = triale hipotez. Każdy sprawdzony wariant liczy się do N.
+
+**Licznik prób: N = 7** (odziedziczone, ADR-004). Uruchomionych w tym
+projekcie: **0**.
+
+---
+
+## Indeks
+
+| ID | Hipoteza | Status | Wynik | Decyzja |
+|---|---|---|---|---|
+| M01 | — | `PLANNED` | — | — |
+| M02 | — | `PLANNED` | — | — |
+| M03 | — | `PLANNED` | — | — |
+| M04 | — | `PLANNED` | — | — |
+| T001 | H01 | `PREREGISTERED` | — | — |
+| T002 | H02, H07 | `PLANNED` | — | — |
+
+---
+
+## M01 — Przeniesienie i weryfikacja aparatury
+
+**Cel.** Przenieść kod pomiarowy z `market-quant` (ADR-005), zbudować świece
+M1/H1 dla segmentów RESEARCH i OOS, uruchomić pełen zestaw testów w tym
+repozytorium, wygenerować własny raport jakości danych.
+
+**Kryterium.** Wszystkie testy przechodzą; luki ≤ 0,05% barów H1 na parę;
+loader rzuca wyjątkiem przy próbie sięgnięcia do segmentu zapieczętowanego.
+
+**Dlaczego pierwsze.** Przeniesiony kod nie dziedziczy zaufania. Bez działającej
+aparatury każdy dalszy wynik jest bezwartościowy.
+
+---
+
+## M02 — Audyt mocy (ADR-009)
+
+**Cel.** Zmierzyć, ile obserwacji naprawdę niezależnych daje się uzyskać przy
+horyzoncie 3 i 10 dni, i jaka z tego wynika najmniejsza wykrywalna przewaga.
+
+**Kryterium — bramka dla T001.** Jeśli najmniejsza wykrywalna przewaga wynosi
+**≥ 0,08 R przy obu horyzontach, T001 nie startuje**. Konstrukcję trzeba
+przeprojektować i zapisać to nowym ADR.
+
+**Dlaczego przed T001.** Uruchomienie eksperymentu, o którym z góry wiadomo, że
+nie wykryje interesującego efektu, spala próbę w liczniku DSR za zero
+informacji. Szacunki przed pomiarem: n_eff ~450 przy h=10d, ~1500 przy h=3d.
+To są **szacunki, nie pomiary**.
+
+---
+
+## M03 — Kalibracja przyrządu kontrolą losową
+
+**Cel.** Odpowiednik bramek 0 i 1 poprzednika: losowe wejścia przy identycznej
+mechanice muszą dać expectancy ≈ −koszt, a strata musi być istotna.
+
+**Kryterium.** Expectancy losowych wejść mieści się w przedziale wokół
+modelowanego kosztu; CI95 leży pod zerem; wynik ujemny przy koszcie 1×, 2×, 3×.
+
+**Dlaczego konieczne.** Bez tego wynik negatywny niczego nie dowodzi — nie da
+się odróżnić „nie ma przewagi" od „przyrząd nie potrafi jej pokazać". To jest
+element, który sprawił, że wynikowi `market-quant` można wierzyć.
+
+---
+
+## M04 — Domknięcie kontroli przesuniętych cech
+
+**Cel.** Sprawdzić przy pełnej mocy, czy cechy postarzone o jeden bar dają
+wynik **gorszy** niż baseline, jak powinny.
+
+**Kontekst.** W `market-quant` ta kontrola dała wynik **lepszy** (−0,0268 vs
+−0,0560 R). Tamto wyjaśnienie — szum przy połowie CI 0,067 R — było poprawne
+w tamtych warunkach. Przy większej mocy to jest otwarte `UNKNOWN`, a wzrost
+wyniku po podaniu cech z przyszłości jest kanonicznym objawem błędu off-by-one.
+
+**Kryterium.** Wynik z cechami przesuniętymi **nie rośnie**. Wzrost → STOP
+i audyt wyrównania znaczników czasu przed jakimkolwiek eksperymentem.
+
+---
+
+## T001 — H01 Momentum, pomiar na wszystkich barach
+
+**Status:** `PREREGISTERED` · **nieuruchomiony** · warunek startu: M01–M04
+
+**Hipoteza:** H01 · **Typ:** confirmatory
+
+### Prerejestracja
+
+| Pole | Wartość |
+|---|---|
+| Mechanizm | Under-reaction — informacja dyfunduje stopniowo |
+| Universe | EURUSD, GBPUSD, USDJPY, AUDUSD, USDCAD, EURJPY |
+| Okres | Rozgrzewka 2015; **decyzje 2016-01-01 → 2021-12-31** |
+| Cecha | `mom_k = (close − close[−k]) / (atr_h1_14 × √k)`, k ∈ {24, 120, 480} barów |
+| Horyzont | h ∈ {3 dni robocze, 10 dni roboczych} |
+| Siatka | 3 × 2 = **6 komórek, wszystkie raportowane** |
+| Kierunek | `sign(mom_k)`, bez progu. Próg jest parametrem swobodnym i nie wchodzi do pierwszego testu |
+| Target A | Zwrot w przód przez h, znormalizowany `atr_d1_14` |
+| Target B | Net R z symulacji tickowej. SL/TP skalowane `σ√T`: h=10d → 2,0/4,0 × `atr_d1_14`; h=3d → 1,1/2,2 × `atr_d1_14` |
+| Próbka | **Wszystkie bary z określoną cechą.** Zero filtrów portfelowych (ADR-002) |
+| Execution | Symulator tickowy: bid/ask osobno, kolejność barier tickowo lub pesymistycznie, luki po cenie otwarcia |
+| Koszty | Spread tickowy, podłoga 1,5/2,5 pipsa, poślizg 0,5× wejście i 1,0× stop, swap z osią marży. Raport 1×/2×/3× |
+| Godziny | **Primary: 08:00–22:00** (baseline operacyjny). **Secondary: wszystkie godziny.** Oba prerejestrowane, oba raportowane |
+| Kontrola losowa | Identyczne instrumenty, okres, godziny, SL/TP, koszty, sizing, execution i **liczba obserwacji**. Różnica: losowy timing i kierunek. ≥200 powtórzeń, ziarno zapisane |
+| Nakładanie | Block bootstrap po dniu, bloki 20-dniowe, 10 000 replikacji. Do testów wchodzi **n_eff** |
+| Walidacja | Brak dopasowania modelu → CPCV zbędne. To jest zaleta konstrukcji, nie brak |
+| Metryka główna | Expectancy w R netto, per komórka, z CI95 |
+| Osie raportowania | Para · rok · kierunek long/short · kubełek `vol_pct_252` (H03) · sesja |
+| Licznik | N: 7 → **13** |
+
+### Kryteria falsyfikacji — ustalone przed uruchomieniem
+
+| Wynik | Wniosek |
+|---|---|
+| CI95 zawiera 0 we wszystkich 6 komórkach | H01 → `NOT_SUPPORTED` |
+| CI95 w całości poniżej +0,02 R we wszystkich komórkach | H01 → `FALSIFIED` |
+| CI95 > 0 w ≥1 komórce **i** kontrola losowa pobita p < 0,05 | H01 → `SUPPORTED`, przechodzi do robustness |
+| Target A dodatni, target B ujemny | Informacja istnieje, nie przeżywa kosztów — osobny, raportowany wynik |
+
+### Oczekiwane artefakty
+
+`runs/<id>/`: `t001.md`, `metrics.json`, `observations.parquet`, kopia
+zamrożonego configu, hash gita, hash danych, diff drzewa. Wpis w
+`trials/trials.jsonl`. Aktualizacja `HYPOTHESES.md`, `EXPERIMENTS.md`,
+`PROGRESS.md`.
+
+---
+
+## T002 — H07 zdarzenie vs H02 stan, plus redundancja z H01
+
+**Status:** `PLANNED` · prerejestracja po zamknięciu T001
+
+**Cel.** Trzy pytania w jednym przebiegu, bo dzielą aparaturę i próbę:
+
+1. Czy `donch_pos` (stan) wnosi informację ponad `mom_k`? → rozstrzyga los H02
+2. Czy zdarzenie wybicia różni się od stanu po kontroli na momentum? → H07
+3. Jaka jest faktyczna korelacja i pokrycie obu cech? → domyka lukę pomiarową
+   `market-quant`, który nigdy nie zmierzył redundancji składników koniunkcji
+
+**Warunek.** Kryterium ilościowe „wnosi informację ponad" musi być ustalone
+w prerejestracji **przed** uruchomieniem, nie po zobaczeniu rozrzutu.
