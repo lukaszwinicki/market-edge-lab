@@ -498,6 +498,17 @@ def write_markdown(path: Path, report: dict, pre: dict) -> None:
             L.append(f"| {n} | {d['p_eff_realized']:.2f} | "
                      f"{d['mean_offdiag']:+.3f} | {d['n_days']} |")
 
+    lk = report.get("leakage_checklist")
+    if lk:
+        L += ["", "## Checklista leakage'u (`DATA.md` §8)", "",
+              f"**{'PRZECHODZI' if lk['passes'] else 'NIE PRZECHODZI'}** — "
+              f"{lk['n_checks']} pozycji, {lk['n_failed']} niespełnionych. "
+              "Pozycja niesprawdzalna kodem bez jawnej deklaracji liczy się "
+              "jako niepowodzenie.", "",
+              "| Pozycja | Stan |", "|---|---|"]
+        for c in lk["checks"]:
+            L.append(f"| {c['item']} | `{c['status']}` |")
+
     L += ["", "## Czego ten przebieg nie zrobił", "",
           "* Nie dotknął segmentu OOS ani zapieczętowanego.",
           "* Nie wybrał najlepszej komórki — wszystkie trzy są raportowane.",
@@ -697,6 +708,49 @@ def main(argv=None) -> int:
                 report["layer_b"][c] = res_b
                 played.write_parquet(run.dir / f"observations_{c}.parquet")
                 print(f"  warstwa B {c}: {res_b['n_played']} transakcji")
+
+        # CHECKLISTA LEAKAGE'U (DATA.md §8) — przed zapisaniem czegokolwiek.
+        # CLAUDE.md: przed KAŻDYM raportowanym wynikiem. Pozycje, których nie
+        # da się sprawdzić z artefaktów, są zadeklarowane tutaj imiennie —
+        # milczenie jest w tym module traktowane jak niepowodzenie.
+        from src.validation.leakage import run_checklist
+        worst = min(cells, key=lambda c: cells[c]["n_obs"])
+        obs_check = pooled({s: session_filter(df, start_h, end_h)
+                            for s, df in series.items()},
+                           f"mom_{worst[1:]}", f"aged_mom_{worst[1:]}")
+        checklist = run_checklist(
+            cfg, json.loads((run.dir / "run.json").read_text(encoding="utf-8")),
+            ROOT / "trials" / "trials.jsonl",
+            observations=obs_check,
+            segment=(dt.datetime.fromisoformat(
+                pre["sample"]["first_decision"]).replace(tzinfo=UTC), end),
+            n_rows=cells[worst]["n_obs"],
+            n_eff=int(pre["layer_a"]["power"]["n_eff_measured"][worst[1:]]),
+            cells=cells,
+            declarations={
+                "expanding_windows":
+                    "vol_pct_252 w oknie rozszerzającym; atr Wildera przyczynowy — "
+                    "test_labels.py::test_expanding_percentile_never_looks_forward",
+                "no_fit_on_test":
+                    "NIE DOTYCZY — T003 nie dopasowuje modelu, brak fit() w całej "
+                    "ścieżce (prereg: layer_a, statystyka opisowa relacji)",
+                "daily_from_closed_day":
+                    "atr_d1_14 i vol_pct_252 łączone przez available_from = doba+1, "
+                    "join_asof zamiast arytmetyki — test_volatility.py, test_labels.py",
+                "simulator_blind":
+                    "simulate_trade tnie okno samodzielnie; trzy testy na brak "
+                    "podglądania w test_simulator.py (dług M01 spłacony w M03)",
+                "macro_alfred":
+                    "NIE DOTYCZY — T003 nie używa danych makro (prereg: feature = mom_k)",
+                "purge_embargo":
+                    "NIE DOTYCZY jako podział — T003 nie dzieli próby ani nie "
+                    "dopasowuje modelu. Nakładanie wchodzi do WNIOSKOWANIA: block "
+                    "bootstrap po dniu i n_eff zmierzone w M05, nie liczba wierszy",
+            })
+        checklist.raise_if_failed()
+        report["leakage_checklist"] = checklist.as_report()
+        print(f"  checklista leakage'u: {checklist.as_report()['n_checks']} pozycji, "
+              f"{'PRZECHODZI' if checklist.passes else 'NIE PRZECHODZI'}")
 
         # Artefakty wymagane przez prerejestrację. `observations.parquet` to
         # WSZYSTKIE decyzje ze wszystkimi cechami i osiami — jedna komórka

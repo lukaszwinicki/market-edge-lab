@@ -147,6 +147,17 @@ parach — czyli zaniżała jednostkę R, czyli wszystko. Próg: ≥12 barów H1
 Leakage jest błędem krytycznym, nie usterką. Wynik uzyskany z jego pomocą jest
 nieważny, a nie „trochę zawyżony".
 
+> **Ta checklista jest WYKONYWALNA od 2026-09-24** — `src/validation/leakage.py`.
+> Do tej daty była wyłącznie prozą i nie wykonywał jej żaden kod, więc jej
+> spełnienie zależało od tego, czy ktoś pamiętał przeczytać ten plik.
+>
+> Pozycje sprawdzalne maszynowo dostają `PASS`/`FAIL` z dowodem. Pozycje,
+> których nie da się sprawdzić z artefaktów przebiegu, wymagają **jawnej
+> deklaracji** — brak deklaracji liczy się jako `FAIL`. „Nie sprawdzono" nie
+> może być cichsze niż „sprawdzono i jest źle".
+>
+> `raise_if_failed()` zatrzymuje przebieg **przed** zapisaniem raportu.
+
 - [ ] Wszystkie normalizacje w oknie **rozszerzającym**, wyłącznie z przeszłości
 - [ ] Żaden `fit()` nie widział danych testowych — w tym skaler, imputer, kalibrator
 - [ ] Bar H1 **zamknięty** przed momentem decyzji; użyto `last_closed_bar()`, nie ręcznej arytmetyki na znacznikach
