@@ -1,0 +1,118 @@
+# t004_carry.yaml — SZKIC PREREJESTRACJI T004 (H04, carry)
+#
+# STATUS: DRAFT — NIE ZAMROŻONY. Żadna sekcja nie ma `frozen: true`.
+# Runner T004 nie istnieje; zamrożenie wymaga decyzji oznaczonych
+# `DECYZJA:` poniżej. Do tego czasu cecha H04 NIE może zostać zestawiona
+# z żadnym zwrotem (ADR-012, ADR-020).
+#
+# Podstawa: ADR-017 (deflacja przed zamrożeniem) · ADR-019 (kontrola
+# zachowująca autokorelację) · ADR-022 (geometria przed planem) · ADR-023
+# (seria overnight, point-in-time) · M09, M10.
+
+meta:
+  trial_id: "T004"
+  hypothesis: "H04"
+  type: "confirmatory"
+  inherits: "configs/base.yaml"
+  frozen: false
+  n_variants: 1                    # jedna komórka
+  counter_before: 10
+  counter_after: 11
+
+hypothesis:
+  mechanism: >
+    Naruszenie parytetu stóp procentowych (UIP). Waluta wyżej oprocentowana
+    nie deprecjonuje się tyle, ile implikuje różnica stóp.
+  prediction: >
+    Różnica stóp overnight (base − quote), znana w momencie decyzji, ma
+    DODATNIĄ relację ze znormalizowanym zwrotem ceny pary przez kolejne h.
+  measured_on: "wszystkie decyzje sesji primary z określoną cechą i targetem"
+
+sample:
+  universe: [EURUSD, GBPUSD, USDJPY, AUDUSD, USDCAD, EURJPY]
+  warmup_from: "2015-01-01"
+  first_decision: "2016-01-01"
+  last_decision_segment_end: "2021-12-31"
+  session: {primary: {start: "08:00", end: "22:00", tz: "UTC"}}
+  windows_crossing_segment_end: {policy: "drop"}
+
+feature:
+  name: "carry_pit"
+  formula: "r_overnight(base) − r_overnight(quote), punkty procentowe"
+  source: "ALFRED, vintage co poniedziałek (scripts/fetch_rates_pit.py)"
+  series: "OECD IRSTCI01 (ADR-023); interbank_3m UNKNOWN"
+  availability: >
+    Wartość najnowszego miesiąca w ostatnim vintage opublikowanym co
+    najmniej 1 dzień roboczy przed decyzją (`pit_last_value`). Wartość
+    taka, jaka była opublikowana, nie zrewidowana.
+  missing: "brak vintage przed decyzją -> wiersz odpada, liczony w raporcie"
+
+grid:
+  horizons_business_days: [3]
+  cells: 1
+  # DECYZJA: napięcie horyzontu (HYPOTHESES.md H04). Mechanizm działa
+  # w skali miesięcy; h = 3 d to jedyny horyzont z kalibracją kosztu
+  # (M03, M04) i zmierzoną mocą (M09, M10). Rekomendacja: h = 3 d, z zapisem,
+  # że wynik dotyczy trzydniowego wycinka dryfu UIP — NIE zdolności
+  # przewidywania na skali miesięcy. Dłuższy horyzont wymaga osobnej
+  # kalibracji kosztu i mocy (M05: h = 10 d traci FALSIFIED).
+
+layer_a:
+  target: "fwd_atr = (cena wyjścia − cena odniesienia) / atr_d1_14"
+  primary_statistic: "spearman(carry_pit, fwd_atr), rangi średnie, pooled po parach"
+  statistic_choice_rationale: >
+    Jak w T003 (kurtoza fwd_atr). Rangi ŚREDNIE, bo cecha miesięczna ma
+    masowe remisy — rangi z argsort rozstrzygałyby je kolejnością wierszy.
+  ci:
+    method: "block_bootstrap_by_day"   # ADR-024 — M10: 2,5× stabilniejszy od null
+    block_days: 20
+    level: 0.95
+    consistency_check:
+      rule: >
+        SE bootstrapu na danych prawdziwych w [0,75; 1,33] × prawdziwe SD
+        ze świata syntetycznego M10 (0,02442–0,02607).
+      on_failure: "STOP — przyrząd nie mierzy tego, co zmierzył M10"
+      m10_run: "20260924T203841Z-ad7ab7"
+  power:
+    source: "M10 — prawdziwe SD, najgorszy wariant (RW / gauss)"
+    n_eff: 1472
+    half_ci_over_rho_be: 0.95
+    mde_acc_pct_before_deflation: 52.33
+    dead_zone_pp_before_deflation: 0.61
+    runtime_risk: >
+      Jeżeli SE bootstrapu na danych prawdziwych > 0,02756, FALSIFIED jest
+      nieosiągalne w samym przebiegu — wynik NOT_SUPPORTED z ograniczeniem.
+
+falsification:
+  layer: "A"
+  breakeven: {accuracy_pct: 51.72, rho_equivalent: 0.05401}
+  supported:
+    rule: "CI > 0 PO DEFLACJI oraz kontrola zachowująca autokorelację pobita"
+    # DECYZJA (ADR-017): forma deflacji o N. Rekomendacja w raporcie sesji.
+    deflation: "PENDING_DECISION"
+  falsified:
+    rule: "CI95 w całości wewnątrz ±0,05401"
+    multiplicity: "brak — jedna komórka; deflacja nie dotyczy równoważności"
+  not_supported:
+    rule: "każdy inny wynik"
+    reporting_duty: "górne ograniczenie w jednostce trafności kierunku"
+
+random_control:
+  # ADR-019: kontrola musi zachowywać autokorelację cechy.
+  method: >
+    Surogat carry skalibrowany jak w M09B (geometria z M09A), cecha
+    losowana, zwroty prawdziwe. NIE permutacja wierszy.
+  consistency_with_ci: "NIE jako reguła 1,5× — ADR-024; kontrola raportowana obok CI"
+
+control_aged_feature:
+  arm: "carry_pit z vintage o tydzień wcześniejszego niż dopuszczalny"
+  criterion: "rho_aged − rho_true < 2·SE(różnicy)"
+
+layer_b:
+  role: "wycena — raportowana, nie rozstrzyga"
+  run_when: "tylko przy sygnale w A (ADR-003)"
+  note: >
+    Dla carry człon finansowania jest KIERUNKOWY — różnica stóp jest tu
+    przychodem, nie tylko kosztem. `swap.py` liczy wyłącznie marżę
+    (ADR-016); wycena carry wymaga dołożenia członu różnicy stóp PIT
+    do wyniku. To jest praca PRZED zamrożeniem warstwy B.

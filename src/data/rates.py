@@ -164,3 +164,53 @@ def ar1_fit(x: np.ndarray) -> tuple[float, float]:
     coef, *_ = np.linalg.lstsq(A, b, rcond=None)
     resid = b - A @ coef
     return float(coef[1]), float(resid.std(ddof=2))
+
+
+# --------------------------------------------------------------------------
+# Point-in-time — ALFRED
+# --------------------------------------------------------------------------
+#
+# `alfredgraph.csv?id=X&vintage_date=D` oddaje serię w postaci, w jakiej
+# istniała w dniu D — bez klucza API. Pobieramy vintage z każdego poniedziałku:
+# informacja może się spóźnić o najwyżej 6 dni (kierunek ostrożny), nigdy
+# nie przychodzi z przyszłości. Decyzja w dniu d widzi wyłącznie vintage
+# z datą ≤ d − 1 dzień roboczy (DATA.md §4: margines na godzinę publikacji).
+
+ALFRED_DIR = ROOT / "data" / "rates" / "alfred"
+ALFREDGRAPH = "https://alfred.stlouisfed.org/graph/alfredgraph.csv"
+
+
+def parse_alfred_csv(text: str, series_id: str, vintage: dt.date) -> pl.DataFrame:
+    """CSV vintage → (vintage_date, month, value). Kolumna nazywa się
+    `<id>_<YYYYMMDD>`; inna data w nazwie niż zamówiona = odmowa."""
+    df = pl.read_csv(io.StringIO(text), infer_schema_length=0)
+    want = f"{series_id}_{vintage:%Y%m%d}"
+    if want not in df.columns:
+        raise MissingRatesError(f"vintage {vintage} serii {series_id}: kolumny {df.columns}")
+    return df.select(
+        pl.lit(vintage).alias("vintage_date"),
+        pl.col(df.columns[0]).str.to_date("%Y-%m-%d").alias("month"),
+        pl.when(pl.col(want).is_in([".", ""])).then(None)
+        .otherwise(pl.col(want)).cast(pl.Float64).alias("value"),
+    )
+
+
+def pit_last_value(vintages: pl.DataFrame, decision_dates: list[dt.date],
+                   margin_business_days: int = 1) -> pl.DataFrame:
+    """Dla każdej daty decyzji: najnowszy miesiąc i jego wartość w ostatnim
+    vintage opublikowanym co najmniej `margin_business_days` dni roboczych
+    wcześniej. Brak takiego vintage → null (UNKNOWN), nie zgadywanie.
+
+    `vintages`: (vintage_date, month, value), wiele vintage naraz.
+    """
+    last = (vintages.drop_nulls("value")
+            .group_by("vintage_date")
+            .agg(pl.col("month").max().alias("month"),
+                 pl.col("value").sort_by("month").last().alias("value"))
+            .sort("vintage_date"))
+    cut = [np.busday_offset(np.datetime64(d, "D"), -margin_business_days,
+                            roll="backward").astype(dt.date) for d in decision_dates]
+    q = pl.DataFrame({"decision_date": decision_dates, "cutoff": cut}).sort("cutoff")
+    return (q.join_asof(last, left_on="cutoff", right_on="vintage_date",
+                        strategy="backward")
+            .sort("decision_date"))

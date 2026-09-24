@@ -1408,3 +1408,137 @@ vintage bez klucza (`alfredgraph.csv?id=…&vintage_date=…`).
 * Napięcie horyzontu z `HYPOTHESES.md` H04 (mechanizm miesięczny, h = 3 d)
   pozostaje do rozstrzygnięcia w prerejestracji. Moc zmierzona jest dla
   h = 3 d — jedynego horyzontu z kalibracją kosztu (M03, M04).
+
+---
+
+## ADR-024 — CI dla cechy trwałej: block bootstrap; reguła zgodności z ADR-019 zawężona; moc H04 z prawdziwego SD
+
+**Status:** ACCEPTED · 2026-09-24 · **Przebieg:** M10 `20260924T203841Z-ad7ab7`
+(`control`, wyłącznie dane syntetyczne) · **Zawęża:** ADR-019 (reguła 1,5×)
+· **Zamyka:** zastrzeżenie ADR-023 · **N bez zmian (10)**
+
+**Decyzja.** Trzy rzeczy:
+
+1. **T004 liczy CI block bootstrapem po dniach** (bloki 20 dni, jak T003).
+2. **Dla cechy trwałej reguła „rozrzut kontroli zgodny z bootstrapem
+   w granicach 1,5×" nie jest diagnostyką.** Kontrola nadal musi zachowywać
+   autokorelację (ADR-019 w tym zakresie bez zmian), ale sprawdzeniem
+   krzyżowym jest zgodność SE bootstrapu na danych prawdziwych z prawdziwym
+   SD ze świata syntetycznego M10, zadeklarowana w prerejestracji.
+3. **Wiążąca moc H04 to prawdziwe SD z M10, nie liczba z M09B:** n_eff
+   **1 472**, `FALSIFIED` osiągalne z ilorazem **0,95**.
+
+**Dowód (`FACT`, M10).** 400 niezależnych światów syntetycznych na wariant
+(cecha skalibrowana jak w M09B × zwroty gaussowskie lub ze zmiennością
+stochastyczną, nakładanie okien i korelacja międzyparowa jak w danych);
+w 40 z nich oba estymatory SE po 100 replikacji:
+
+| Wariant | Prawdziwe SD | n_eff | null: SE / prawda · pokrycie · cv | bootstrap: SE / prawda · pokrycie · cv |
+|---|---|---|---|---|
+| AR(1) / gauss | 0,02523 | 1 571 | 1,01 · 0,90 · 0,32 | 0,96 · 0,90 · 0,15 |
+| AR(1) / stochvol | 0,02442 | 1 677 | 0,99 · 0,97 · 0,34 | 0,98 · 0,95 · 0,13 |
+| RW / gauss | 0,02607 | **1 472** | 0,98 · 1,00 · 0,39 | 0,91 · 0,97 · 0,13 |
+| RW / stochvol | 0,02574 | 1 509 | 0,99 · 1,00 · 0,36 | 0,96 · 0,90 · 0,14 |
+
+Oba estymatory są **średnio poprawne** (SE / prawda 0,91–1,01) i oba
+przechodzą regułę zadeklarowaną przed przebiegiem. Różnią się
+**stabilnością**: rozkład zerowy z losowaną cechą ma współczynnik zmienności
+0,32–0,39 między światami, bootstrap 0,13–0,15.
+
+**Wyjaśnienie rozjazdu z M09B (`INFERENCE`, zgodny z pomiarem).** Przy
+cv ≈ 0,35 iloraz null/bootstrap w pojedynczej realizacji rzędu 0,6 (M09B:
+0,57–0,60) leży w granicach ~1,5 odchylenia — to nie jest wada żadnego
+z estymatorów, tylko cecha estymatora warunkowego na zrealizowanych zwrotach,
+gdy cecha ma kilka niezależnych epizodów w sześć lat. Reguła 1,5× z ADR-019
+zakładała cechę ergodyczną (tam oba mierzą to samo i rozjazd oznacza błąd).
+Dla cechy trwałej fałszywie alarmowałaby w znacznej części realizacji.
+
+**Moc — piąty błąd optymistyczny.** M09B wziął większe z dwóch SE
+**zmierzonych na jednej realizacji** i dostał n_eff 1 870. Prawdziwe SD
+w najgorszym wariancie daje **1 472** — o 21% mniej. `FALSIFIED` pozostaje
+osiągalne, ale z marginesem 5% (iloraz 0,95), a MDE przed deflacją wynosi
+**52,33%** (martwa strefa **+0,61 pp**). Konsekwencja zapisana z góry:
+jeżeli SE bootstrapu na danych prawdziwych przekroczy 0,02756
+(= 0,05401 / 1,96), `FALSIFIED` stanie się nieosiągalne w samym przebiegu
+i T004 zwróci `NOT_SUPPORTED` z górnym ograniczeniem.
+
+**Alternatywy.** (a) *Zachować regułę 1,5× i uznać H04 za niemierzalną.*
+Odrzucone: M10 pokazał, że oba estymatory są poprawne; reguła mierzyłaby
+szum estymatora, nie błąd. (b) *CI z rozkładu zerowego.* Odrzucone: równie
+nieobciążony, ale 2,5× mniej stabilny — pojedyncza realizacja może dać CI
+o połowę za wąski. (c) *Moc z M09B.* Odrzucone: to jest dokładnie ten wzorzec
+— jedna realizacja zamiast prawdy — który M10 miał wyeliminować.
+
+**Konsekwencje.**
+
+* Prerejestracja T004 deklaruje: CI = bootstrap; kontrola = surogat
+  zachowujący trwałość; sprawdzenie krzyżowe = SE bootstrapu w przedziale
+  [0,75; 1,33] × prawdziwe SD M10 (0,0244–0,0261).
+* Każda przyszła cecha trwała (autokorelacja na skali okna ≳ 1) przechodzi
+  pomiar pokrycia na świecie syntetycznym, zanim jej prerejestracja wybierze
+  metodę CI.
+
+---
+
+## ADR-025 — Seria OECD dla EUR nie istniała point-in-time w 2016–2017; prerejestracja T004 wstrzymana do wyboru źródła stóp
+
+**Status:** ACCEPTED · 2026-09-24 · **Przebiegi:** `fetch_rates_pit`
+(`infra`) i M11 `20260924T211756Z-2329f2` (`control`) · **Zmienia
+konsekwencję:** ADR-023 pkt 1 (seria `overnight` jako cecha) · **N bez zmian (10)**
+
+**Decyzja.** Cecha H04 w postaci z ADR-023 **nie może wejść do testu**:
+dla EUR w latach 2016–2017 nie istnieje wartość point-in-time. T004 zostaje
+w stanie DRAFT do czasu wyboru źródła stóp (sekcja Alternatywy). Nic, co
+powstało dotąd (M09, M10), nie jest unieważnione — oba mierzyły geometrię
+i przyrząd, nie H04.
+
+**Dowód (`FACT`).** W ALFRED każdy vintage serii `IRSTCI01EZM156N` (i tak
+samo `IR3TIB01EZM156N`) sprzed **2018-01-08** kończy się na **2013-12**.
+OECD nie aktualizowało stóp strefy euro przez cztery lata, a wartości za
+2014–2017 dosypało wstecz w styczniu 2018. Pobieranie: **106 z 314** vintage
+EUR puste w oknie od 2014; pozostałe pięć walut — komplet. Wynik M11:
+**527 dni decyzji** bez wartości EUR, czyli EURUSD i EURJPY bez cechy przez
+dwa z sześciu lat.
+
+Wniosek wtórny: **bieżący vintage był dla EUR look-aheadem**, nie tylko
+wersją zrewidowaną. ADR-023 zakazał go w teście z powodu rewizji; faktyczny
+problem był poważniejszy. Geometria z M09A nie jest tym dotknięta
+(poziomy EONIA ≈ −0,3 do −0,5 są i tak prawie stałe), ale **cecha w teście
+musi pochodzić z innego źródła**.
+
+**Pozostałe liczby M11.** Rewizje tam, gdzie PIT istnieje, są małe:
+średnia |PIT − bieżący| 0,04–0,08 pp, korelacja 0,973–0,990. Faktyczne
+opóźnienie publikacji: 1–2 miesiące, sporadycznie 3–4 (przyjęte w M09: 2).
+Geometria PIT na dniach kompletnych: zmienność w czasie 0,650 (M09A 0,652),
+rozrzut między parami 0,925 (M09A 0,814, +14%) — w tolerancji ±20%.
+**Zastrzeżenie:** „dni kompletne" to wyłącznie 2018–2021, bo brak EUR
+wyrzucił wszystkie pary z lat 2016–2017. Porównanie geometrii nie obejmuje
+więc tego samego okresu co M09A. GBP ma 12 dni z opóźnieniem 0 (lipiec 2019:
+wartość miesiąca opublikowana w jego trakcie) — to jest to, co było
+opublikowane, loader nie dodaje z przyszłości nic.
+
+**Luka w pobieraniu.** `fetch_rates_pit.py` liczył vintage bez danych
+w oknie jako pobrane (log: „314/314"). Poprawione: skrypt odróżnia teraz
+brak odpowiedzi od vintage pustego w oknie. Plik danych jest poprawny —
+błędne było wyłącznie podsumowanie w rejestrze.
+
+**Alternatywy — DO DECYZJI.**
+
+| Opcja | Co daje | Koszt / ryzyko |
+|---|---|---|
+| (a) Odrzucić EURUSD i EURJPY w 2016–2017 | szybkie | ~11% wierszy; n_eff z M10 (1 472) spada w okolice progu 1 317 — `FALSIFIED` może przestać być osiągalne; próba niezbalansowana w czasie |
+| (b) **Stopy polityki pieniężnej, dzienne, z oficjalnych decyzji** | PIT z konstrukcji (znane w chwili ogłoszenia, bez rewizji, bez opóźnienia publikacji); zgodne z mechanizmem rolowania | FRED ma dzienne USD (`DFF`), EUR (`ECBDFR`), GBP (SONIA `IUDSOIA`); JPY, AUD, CAD trzeba odtworzyć z komunikatów BoJ, RBA, BoC — kilkanaście zmian w 2016–2021. Zmiana cechy → powtórzenie M09/M10 (zero prób) |
+| (c) Porzucić H04 | — | odrzucone: brak danych to nie jest wynik negatywny hipotezy |
+
+Rekomendacja: **(b)**. To jest wielkość, o której mówi mechanizm (stopa
+rolowania), i jedyna, dla której point-in-time jest gwarantowany
+konstrukcją, a nie odtwarzany z vintage.
+
+**Konsekwencje.**
+
+* `configs/t004_carry.yaml` pozostaje DRAFT; sekcja `feature` do zmiany po
+  decyzji.
+* Przy opcji (b): nowy moduł danych stóp polityki z tabelą decyzji
+  oficjalnych (każda pozycja z datą, godziną ogłoszenia UTC i źródłem),
+  testami na znanych zmianach i powtórzeniem M09A/M09B/M10 — wszystko jako
+  `control`/`infra`, N bez zmian.

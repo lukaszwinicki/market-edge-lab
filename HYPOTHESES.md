@@ -122,8 +122,9 @@ Komórka k = 480 jest najsłabsza i to ona wyznacza, co T003 potrafi wykluczyć.
 | **Kryteria falsyfikacji** | Do ustalenia w prerejestracji trialu |
 | **Origin** | Prerejestracja projektu |
 | **Dane — ROZSTRZYGNIĘTE (ADR-023)** | Różnica stóp `overnight` (OECD IRSTCI01), komplet dla sześciu walut. `interbank_3m` `UNKNOWN` (brak USD 2020-04). Bieżący vintage wyłącznie do geometrii; test wymaga ALFRED point-in-time |
-| **Moc — ZMIERZONA (M09)** | `FACT`. n_eff 1 870–2 344 przy h = 3 d, `FALSIFIED` osiągalne (iloraz 0,75–0,84). Zastrzeżenie: rozkład zerowy i bootstrap rozjeżdżają się 1,7× — ADR-019 otwarty |
-| **Następny krok** | M10 (pokrycie SE na danych syntetycznych) i dane point-in-time z ALFRED. Dopiero potem prerejestracja |
+| **Moc — ZMIERZONA (M09, M10)** | `FACT`. Wiążące jest prawdziwe SD ze świata syntetycznego (M10): **n_eff 1 472**, `FALSIFIED` osiągalne z ilorazem **0,95**, MDE 52,33% przed deflacją. M09B (1 870–2 344) był optymistyczny o 21%. CI = block bootstrap (ADR-024) |
+| **Dane PIT — BLOKADA (M11, ADR-025)** | `FACT`. Seria OECD EUR nie istniała point-in-time w 2016–2017 (vintage kończą się na 2013-12 do 2018-01-08). Bieżący vintage był dla EUR look-aheadem |
+| **Następny krok** | Decyzja o źródle stóp (ADR-025; rekomendacja: dzienne stopy polityki z oficjalnych decyzji), potem powtórzenie M09/M10 na nowej cesze i prerejestracja T004 |
 
 ---
 
@@ -196,3 +197,5 @@ Komórka k = 480 jest najsłabsza i to ona wyznacza, co T003 potrafi wykluczyć.
 | 2026-09-24 | H07 | bez zmiany statusu | **M07** potwierdził uzasadnienie nowości pomiarem: zdarzenie jest 44–54× rzadsze od stanu. H07 zostaje jedyną treścią T002 po zamknięciu H02 |
 | 2026-09-24 | H07 | bez zmiany statusu | **M08A** (`20260924T200939Z-67315c`, kontrola, N bez zmian): 726 zdarzeń, górna granica n_eff 843 wobec 1 317 potrzebnych do falsyfikacji. **T002 nie startuje (ADR-021)**. Pomiar NIE dotknął zwrotów w przód |
 | 2026-09-24 | H04 | bez zmiany statusu | **M09** (`20260924T202826Z-a64090`, kontrola, N bez zmian): bramka ADR-022 przekroczona, n_eff ≥ 1 870. Prerejestracja wstrzymana do rozstrzygnięcia rozjazdu SE (ADR-019, ADR-023). Pomiar NIE zestawił cechy ze zwrotem |
+| 2026-09-24 | H04 | bez zmiany statusu | **M10** (`20260924T203841Z-ad7ab7`, kontrola, dane syntetyczne): rozjazd SE wyjaśniony, CI = bootstrap (ADR-024). n_eff wiążące 1 472, `FALSIFIED` osiągalne |
+| 2026-09-24 | H04 | bez zmiany statusu | **M11** (`20260924T211756Z-2329f2`, kontrola): EUR bez wartości point-in-time w 2016–2017. Prerejestracja T004 wstrzymana do wyboru źródła stóp (ADR-025) |

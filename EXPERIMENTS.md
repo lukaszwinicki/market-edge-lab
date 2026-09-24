@@ -25,6 +25,8 @@ Uruchomionych prób strategii w tym projekcie: **3**.
 | M07 | — | `CLOSED` | **ROZSTRZYGA** — H02 redundantna z H01 (ρ = +0,832 z `mom_24`); zdarzenie H07 jest 44–54× rzadsze od stanu | H02 → `CLOSED`; T002 zwęża się do H07 |
 | M08 | — | `CLOSED` | **ROZSTRZYGA** — 726 zdarzeń H07 na siatce primary; górna granica n_eff 843 wobec 1 317 potrzebnych do `FALSIFIED` | ADR-021: T002 nie startuje |
 | M09 | — | `CLOSED` | **PRZECHODZI z zastrzeżeniem** — H04 carry: n_eff 1 870–2 344, `FALSIFIED` osiągalne; rozkład zerowy i bootstrap rozjeżdżają się 1,7× (ADR-019 otwarty) | ADR-023 |
+| M10 | — | `CLOSED` | **ROZSTRZYGA** — przy cesze trwałej oba SE średnio poprawne; bootstrap 2,5× stabilniejszy. Prawdziwe n_eff H04 = 1 472, `FALSIFIED` osiągalne (0,95) | ADR-024: CI = bootstrap |
+| M11 | — | `CLOSED` | **BLOKUJE** — EUR nie ma wartości point-in-time w 2016–2017 (seria OECD zamrożona na 2013-12 do stycznia 2018); 527 dni bez cechy | ADR-025: T004 wstrzymany do wyboru źródła stóp |
 | T002 | H07 | `WITHDRAWN` | **nieuruchomiony, bez prerejestracji** — `FALSIFIED` nieosiągalne przy każdym modelu zależności (M08A) | ADR-021 |
 | T003 | H01 | `CLOSED` | **`NOT_SUPPORTED`** — relacja nieodróżnialna od zera we wszystkich 3 komórkach; górne ograniczenie **51,03%** trafności | H01 → `NOT_SUPPORTED`; ADR-019 |
 
@@ -558,6 +560,64 @@ co `mom_480` w M05.
 nie czytał stóp. **Nie rozstrzygnął, które SE jest właściwe** — rozjazd
 1,7× przekracza limit ADR-019 i blokuje prerejestrację do czasu M10.
 Nie pobrał danych point-in-time.
+
+---
+
+## M10 — Pokrycie SE przy cesze trwałej · `CLOSED` · **ROZSTRZYGA**
+
+**Cel.** Rozstrzygnąć rozjazd 1,7× z M09B (ADR-023): który SE pokrywa
+prawdę? **Wyłącznie dane syntetyczne** — ze wcześniejszych przebiegów tylko
+liczby (macierz korelacji zwrotów z M05, parametry surogatu z M09A/M09B).
+Szczegóły: **ADR-024**.
+
+### Wynik (2026-09-24) · `20260924T203841Z-ad7ab7` · `control`, N bez zmian
+
+| Wariant | Prawdziwe SD | n_eff | null (SE/prawda · pokrycie · cv) | bootstrap (SE/prawda · pokrycie · cv) |
+|---|---|---|---|---|
+| AR(1) / gauss | 0,02523 | 1 571 | 1,01 · 0,90 · 0,32 | 0,96 · 0,90 · 0,15 |
+| AR(1) / stochvol | 0,02442 | 1 677 | 0,99 · 0,97 · 0,34 | 0,98 · 0,95 · 0,13 |
+| RW / gauss | 0,02607 | **1 472** | 0,98 · 1,00 · 0,39 | 0,91 · 0,97 · 0,13 |
+| RW / stochvol | 0,02574 | 1 509 | 0,99 · 1,00 · 0,36 | 0,96 · 0,90 · 0,14 |
+
+Oba estymatory średnio poprawne; bootstrap **2,5× stabilniejszy** (cv).
+Rozjazd z M09B to szum estymatora warunkowego, nie błąd któregokolwiek.
+Moc wiążąca: **n_eff 1 472**, iloraz `FALSIFIED` **0,95**, MDE 52,33%
+przed deflacją — o 21% mniej niż M09B.
+
+### Czego M10 nie zrobił
+
+Nie dotknął danych prawdziwych. Świat syntetyczny nie ma dryfów ani
+reżimów rynku FX 2016–2021 poza tym, co niesie macierz korelacji
+i zmienność stochastyczna — dlatego T004 deklaruje sprawdzenie krzyżowe
+SE bootstrapu z tym pasmem.
+
+---
+
+## M11 — Cecha carry point-in-time wobec bieżącego vintage · `CLOSED` · **BLOKUJE**
+
+**Cel.** Czy cecha, którą zmierzy T004 (ALFRED, point-in-time), jest tą samą
+cechą, na której skalibrowano M09/M10? Wyjątek ADR-020 — zero cen.
+Szczegóły: **ADR-025**.
+
+### Wynik (2026-09-24) · `20260924T211756Z-2329f2` · `control`, N bez zmian
+
+Vintage ALFRED co poniedziałek, 2015-12-28 → 2021-12-27: pięć walut
+komplet, **EUR — 106 z 314 vintage pustych** (seria kończy się na 2013-12
+aż do 2018-01-08). **527 dni decyzji bez cechy EUR.**
+
+| | Wartość |
+|---|---|
+| \|PIT − bieżący\| średnio | 0,04–0,08 pp; korelacja 0,973–0,990 |
+| opóźnienie publikacji | 1–2 mies., sporadycznie 3–4 |
+| zmienność w czasie PIT / M09A | 0,650 / 0,652 |
+| rozrzut między parami PIT / M09A | 0,925 / 0,814 (+14%) |
+
+Geometria w tolerancji, ale porównana wyłącznie na latach 2018–2021.
+
+### Czego M11 nie zrobił
+
+Nie zestawił cechy z żadnym zwrotem. Nie wybrał źródła zastępczego dla
+EUR — to decyzja (ADR-025).
 
 ---
 

@@ -86,7 +86,7 @@ Rok 2015 jest okresem rozgrzewki cech — bez decyzji. Pierwsze decyzje:
 | Zawartość | Wyłącznie `(timestamp_utc, waluta, nazwa, ranga)`. **Bez wartości `actual`/`consensus`/`previous`** |
 | Stopy | FRED/ALFRED, pokrycie sprawdzane dniami decyzji |
 | Dostęp | **Wyłącznie point-in-time**: ALFRED z `realtime_start` = data decyzji, plus margines 1 dnia roboczego na opóźnienie publikacji |
-| Status w tym projekcie | **Bieżący vintage pobrany** (`scripts/fetch_rates.py`, `data/rates/current_vintage/`) — **wyłącznie do geometrii cechy** (ADR-023). Seria `overnight` kompletna 2015–2021; `interbank_3m` `UNKNOWN` (USD 2020-04). Point-in-time z ALFRED: jeszcze nie |
+| Status w tym projekcie | **Bieżący vintage pobrany** (`scripts/fetch_rates.py`, `data/rates/current_vintage/`) — **wyłącznie do geometrii cechy** (ADR-023). Seria `overnight` kompletna 2015–2021; `interbank_3m` `UNKNOWN` (USD 2020-04). **Point-in-time z ALFRED pobrany** (`data/rates/alfred/`, vintage co poniedziałek) — **EUR nie istnieje PIT w 2016–2017** (seria OECD zamrożona na 2013-12 do 2018-01-08, ADR-025). Bieżący vintage był dla EUR look-aheadem |
 
 **Zakazane:** scraping ForexFactory/Investing.com; jakiekolwiek użycie
 `consensus` lub `surprise` — brak darmowego archiwum point-in-time, więc

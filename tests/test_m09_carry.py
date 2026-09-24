@@ -231,3 +231,55 @@ def test_calibration_hits_both_geometry_targets():
     # iloraz 0,81/0,65 leży powyżej tego, co daje sam dryf innowacji,
     # więc potrzebny jest dodatni rozrzut poziomów startowych
     assert lsd > 0 and mult > 0
+
+
+# --------------------------------------------------------------------------
+# Point-in-time (ALFRED)
+# --------------------------------------------------------------------------
+
+from src.data.rates import parse_alfred_csv, pit_last_value  # noqa: E402
+
+
+def test_alfred_parse_requires_the_vintage_it_asked_for():
+    txt = "observation_date,X_20160104\n2015-11-01,0.1\n2015-12-01,0.2\n"
+    df = parse_alfred_csv(txt, "X", dt.date(2016, 1, 4))
+    assert df.get_column("value").to_list() == [0.1, 0.2]
+    with pytest.raises(MissingRatesError):
+        parse_alfred_csv(txt, "X", dt.date(2016, 1, 11))
+
+
+def _vintages():
+    rows = [
+        # vintage 2016-01-04: grudzień już jest
+        (dt.date(2016, 1, 4), dt.date(2015, 11, 1), 0.10),
+        (dt.date(2016, 1, 4), dt.date(2015, 12, 1), 0.20),
+        # vintage 2016-02-08: grudzień zrewidowany, doszedł styczeń
+        (dt.date(2016, 2, 8), dt.date(2015, 12, 1), 0.25),
+        (dt.date(2016, 2, 8), dt.date(2016, 1, 1), 0.30),
+    ]
+    return pl.DataFrame(rows, schema=["vintage_date", "month", "value"], orient="row")
+
+
+def test_pit_never_uses_a_vintage_published_on_the_decision_day():
+    """Margines 1 dnia roboczego: vintage z poniedziałku widzi dopiero
+    wtorek. W poniedziałek decyzja nie ma jeszcze niczego."""
+    out = pit_last_value(_vintages(), [dt.date(2016, 1, 4), dt.date(2016, 1, 5)])
+    assert out.get_column("value").to_list() == [None, 0.20]
+
+
+def test_pit_uses_the_value_as_published_not_as_revised():
+    out = pit_last_value(_vintages(), [dt.date(2016, 2, 5)])
+    assert out.get_column("value").to_list() == [0.20]          # nie 0,25
+    assert out.get_column("month").to_list() == [dt.date(2015, 12, 1)]
+
+
+def test_pit_moves_to_the_new_month_only_after_its_vintage():
+    out = pit_last_value(_vintages(), [dt.date(2016, 2, 8), dt.date(2016, 2, 9)])
+    assert out.get_column("month").to_list() == [dt.date(2015, 12, 1), dt.date(2016, 1, 1)]
+
+
+def test_pit_margin_skips_the_weekend():
+    """Decyzja w poniedziałek 2016-02-15: dzień roboczy wcześniej to piątek
+    2016-02-12, więc vintage z 2016-02-08 jest widoczny."""
+    out = pit_last_value(_vintages(), [dt.date(2016, 2, 15)])
+    assert out.get_column("value").to_list() == [0.30]
