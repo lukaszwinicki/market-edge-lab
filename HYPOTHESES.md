@@ -168,8 +168,9 @@ Komórka k = 480 jest najsłabsza i to ona wyznacza, co T003 potrafi wykluczyć.
 | **Uzasadnienie nowości — POTWIERDZONE (M07)** | `FACT`. Stan (`donch_pos_55 > 0,80`) odpala na **21,5–25,0%** barów, zdarzenie wybicia na **0,45–0,49%** — **44 do 54 razy rzadziej**, spójnie na wszystkich sześciu parach. To NIE jest ta sama wielkość pod dwiema nazwami; `market-quant` mierzył stan i nazywał go wybiciem. Pomiar NIE dotknął zwrotów w przód (ADR-020) |
 | **Kryteria falsyfikacji** | `NOT_SUPPORTED`, gdy zwroty po zdarzeniu są nieodróżnialne od zwrotów w stanie po kontroli na momentum. Również `NOT_SUPPORTED`, gdy różnica istnieje, ale znika po kosztach — wtedy raportowana jako efekt bez wartości ekonomicznej |
 | **Ograniczenie interpretacyjne** | Wynik H07 **nie może** być użyty jako retroaktywne potwierdzenie H02 ani H01. Hipoteza powstała po wyniku i jej dowody mają niższą wagę niż dowody z testu prerejestrowanego |
-| **Powiązane triale** | T002 (zaplanowany) |
-| **Następny krok** | Po T001 |
+| **Powiązane triale** | T002 wycofany przed prerejestracją (ADR-021) |
+| **Moc — ZMIERZONA (M08A)** | `FACT`. 726 zdarzeń na siatce primary RESEARCH, górna granica n_eff 843; `FALSIFIED` wymaga 1 317. **W tej definicji (`N = 55`, `quiet_bars = 55`, h = 3 d) hipoteza jest nietestowalna na RESEARCH** — każdy trial skończyłby się `NOT_SUPPORTED` niezależnie od danych |
+| **Następny krok** | Brak w tej fazie. Inna definicja zdarzenia wymaga nowego ADR z uzasadnieniem z mechanizmu, nie z mocy (ADR-021) |
 
 ---
 
@@ -191,3 +192,4 @@ Komórka k = 480 jest najsłabsza i to ona wyznacza, co T003 potrafi wykluczyć.
 | 2026-09-24 | H01 | `PREREGISTERED` → `NOT_SUPPORTED` | **T003 zamknięty** (`20260924T150658Z-8daa11`, N: 7 → 10). CI95 zawiera zero we wszystkich 3 komórkach. Nie `FALSIFIED`, bo dolny koniec CI przy k = 120 i 480 wychodzi poza pasmo progu opłacalności — blokuje to niewykluczona relacja **ujemna**, nie dodatnia |
 | 2026-09-24 | H02 | `PROPOSED` → `CLOSED` | **M07** (`20260924T154152Z-a734c5`, kontrola, N bez zmian): Spearman(`donch_pos_55`, `mom_24`) = +0,832, `P(mom>0 \| stan)` = 0,973. Warunek reaktywacji z tego rejestru niespełniony. Pomiar NIE dotknął zwrotów w przód (ADR-020) |
 | 2026-09-24 | H07 | bez zmiany statusu | **M07** potwierdził uzasadnienie nowości pomiarem: zdarzenie jest 44–54× rzadsze od stanu. H07 zostaje jedyną treścią T002 po zamknięciu H02 |
+| 2026-09-24 | H07 | bez zmiany statusu | **M08A** (`20260924T200939Z-67315c`, kontrola, N bez zmian): 726 zdarzeń, górna granica n_eff 843 wobec 1 317 potrzebnych do falsyfikacji. **T002 nie startuje (ADR-021)**. Pomiar NIE dotknął zwrotów w przód |

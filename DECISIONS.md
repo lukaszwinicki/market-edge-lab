@@ -1226,3 +1226,70 @@ dokładnie to, co ADR-012 odrzucił. Wyjątek ma być sprawdzalny w źródle.
 * `src/features/breakout.py` powstaje jako moduł **niosący treść hipotezy**,
   obok `momentum.py` — żeby dało się zobaczyć, co go importuje.
 * Reguła ogólna ADR-012 zostaje w mocy w pozostałym zakresie.
+
+---
+
+## ADR-021 — T002 nie startuje: H07 w obecnej definicji nie ma mocy na `FALSIFIED`
+
+**Status:** ACCEPTED · 2026-09-24 · **Wykryte w:** M08A
+(`20260924T200939Z-67315c`) · **Precedens:** ADR-011 · **N bez zmian**
+
+**Decyzja.** T002 (H07, zdarzenie wybicia `N = 55`, `quiet_bars = 55`,
+h = 3 d, warstwa A) **nie dostaje prerejestracji i nie startuje**. H07 zostaje
+`EXPLORATORY` / `POST-HOC`, bez zmiany statusu, z adnotacją, że w tej definicji
+jest nietestowalna na segmencie RESEARCH. Krok B audytu (rozkład zerowy
+z surogatu) **nie jest uruchamiany**.
+
+**Powód (`FACT`, M08A).** `FALSIFIED` na warstwie A wymaga CI95 wewnątrz
+±0,05401 (M04), czyli **n_eff ≥ 1 317**. Żadna statystyka zwrotów po zdarzeniu
+nie ma więcej informacji niż zdarzeń, a zdarzeń jest:
+
+| Próba | Zdarzenia | Górna granica n_eff (×6,97/6, M05) | Połowa CI / próg | MDE (moc 80%) |
+|---|---|---|---|---|
+| siatka T003, sesja primary | **726** | 843 | 1,25 | 53,08% |
+| wszystkie godziny | 1 048 | 1 217 | 1,04 | 52,56% |
+| skupiska okien (dolna granica) | 216 | — | 2,47 | 56,11% |
+
+Próg opłacalności: **51,72%**. `FALSIFIED` jest nieosiągalne **w każdym
+wierszu**, także w najbardziej optymistycznym. Do osiągalności potrzebny byłby
+mnożnik n_eff/n = **1,81**; najwyższy zmierzony w projekcie (M05,
+`sign_aligned`, cecha gęsta) to 1,16. Kryterium zostało zapisane w skrypcie
+jako stałe **przed** przebiegiem.
+
+Przebieg liczył wyłącznie znaczniki czasu zdarzeń (ADR-020). Żadna cena po
+decyzji nie została odczytana, więc wycofanie nie jest wyborem kryterium pod
+wynik — to jest ten sam dowód, którego ADR-011 wymaga od każdego wycofania.
+
+**Dlaczego krok B nie jest potrzebny.** Surogat mierzy n_eff, a n_eff jest
+ograniczone liczbą zdarzeń z góry. Krok B mógłby wyłącznie doprecyzować
+martwą strefę w przedziale 53,1–56,1% — ta nie zmienia werdyktu bramki,
+bo warunek 1 (osiągalność `FALSIFIED`) jest już niespełniony. Uruchomienie
+go byłoby pomiarem bez decyzji.
+
+**Pomyłki w szacunku przed pomiarem**, zapisane, bo obie szły w stronę
+optymistyczną: (1) „600–700 zdarzeń na parę" to w rzeczywistości **726 na
+wszystkich parach razem** (95–136 na parę); (2) plan audytu podawał jako próg
+wykrywalności połowę CI zamiast MDE przy mocy 80% — M05 używa MDE, test
+w `tests/test_m08_event_geometry.py` to wykrył i przywiązał definicję do M05.
+
+**Alternatywy.** (a) *Wszystkie godziny zamiast primary.* Odrzucone
+pomiarem: 1 217 < 1 317 nawet w granicy optymistycznej, a koszt poza
+08–22 UTC nie jest skalibrowany (M03, M04). (b) *Dołożyć segment OOS
+2022–2023.* Odrzucone: primary daje wtedy ~1 124, poniżej progu; jedynie
+wszystkie godziny + OOS (~1 623) przekraczają go w granicy optymistycznej —
+za cenę spalenia OOS na pomiar odkrywczy i nieskalibrowanego kosztu.
+(c) *Krótszy zakres `N` albo krótsze `quiet_bars`.* Więcej zdarzeń, ale to
+**inna definicja** zdarzenia, dobrana dla mocy, nie z mechanizmu. Wymaga
+nowego ADR z uzasadnieniem z mechanizmu (CLAUDE.md: nie mnożymy hipotez, żeby
+uniknąć wyniku negatywnego). (d) *Uruchomić T002 mimo to.* Odrzucone: próba
+z gwarantowanym `NOT_SUPPORTED` kosztuje N i nic nie wyklucza — ADR-011.
+
+**Konsekwencje.**
+
+* N = 10, bez zmian. Wpis `T002` w `EXPERIMENTS.md` → `WITHDRAWN` przed
+  prerejestracją.
+* Po M07 i M08A rejestr nie ma żadnej hipotezy gotowej do trialu na
+  obecnych danych. Kolejny krok jest decyzją o fazie, nie pomiarem.
+* Deklaracje z ADR-017 (deflacja) i ADR-019 (kontrola zachowująca
+  autokorelację) nie zostały wykonane, bo nie powstała prerejestracja.
+  Obowiązują następną.

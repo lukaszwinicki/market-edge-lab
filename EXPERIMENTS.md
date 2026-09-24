@@ -23,7 +23,8 @@ Uruchomionych prób strategii w tym projekcie: **3**.
 | M06 | — | `CLOSED` | **PRZECHODZI** — zero pełnego modelu kosztu to −0,0422 R; złożenie swapu identyczne co do bitu | ADR-016 |
 | T001 | H01 | `WITHDRAWN` | **nieuruchomiony** — konstrukcja bez mocy na osiągnięcie własnych kryteriów (M02) | ADR-011 |
 | M07 | — | `CLOSED` | **ROZSTRZYGA** — H02 redundantna z H01 (ρ = +0,832 z `mom_24`); zdarzenie H07 jest 44–54× rzadsze od stanu | H02 → `CLOSED`; T002 zwęża się do H07 |
-| T002 | H07 | `PLANNED` | — | zakres zawężony przez M07 |
+| M08 | — | `CLOSED` | **ROZSTRZYGA** — 726 zdarzeń H07 na siatce primary; górna granica n_eff 843 wobec 1 317 potrzebnych do `FALSIFIED` | ADR-021: T002 nie startuje |
+| T002 | H07 | `WITHDRAWN` | **nieuruchomiony, bez prerejestracji** — `FALSIFIED` nieosiągalne przy każdym modelu zależności (M08A) | ADR-021 |
 | T003 | H01 | `CLOSED` | **`NOT_SUPPORTED`** — relacja nieodróżnialna od zera we wszystkich 3 komórkach; górne ograniczenie **51,03%** trafności | H01 → `NOT_SUPPORTED`; ADR-019 |
 
 ---
@@ -474,6 +475,53 @@ przewagi, bo H01 jej nie miał" jest `INFERENCE` i **nie jest wynikiem M07**.
 
 ---
 
+## M08 — Audyt mocy T002 (H07) · `CLOSED` · **ROZSTRZYGA**
+
+**Cel.** Czy H07 ma dość zdarzeń, żeby `FALSIFIED` było osiągalne na
+warstwie A? Rozstrzygnięcie **przed** prerejestracją T002, za zero prób.
+Autoryzacja: wyjątek ADR-020, jak M07 — skrypt liczy wyłącznie znaczniki
+czasu, nie czyta żadnej ceny po decyzji; pilnuje tego
+`tests/test_m08_event_geometry.py`, czytając źródło.
+
+Zaplanowany w dwóch krokach: A (geometria zdarzeń) i B (rozkład zerowy
+z surogatu, wzór M05). **B nie został uruchomiony** — A rozstrzygnął warunek,
+którego B nie mógł zmienić (ADR-021).
+
+### Wynik kroku A (2026-09-24) · `20260924T200939Z-67315c` · `control`, N bez zmian
+
+Zgodność z M07 co do sztuki na wszystkich parach (176 / 167 / 172 / 168 /
+184 / 183). Okna przecinające koniec segmentu: 2 odrzucone.
+
+| | Primary (siatka T003) | Wszystkie godziny |
+|---|---|---|
+| zdarzenia | **726** (95–136 na parę) | 1 048 |
+| z oknem nakładającym się na tej samej parze | 5,8% | 8,8% |
+| z oknem nakładającym się na **innej** parze | **91,3%** | 97,3% |
+| zgodność kierunku USD w nakładaniach | 56,9% | 57,7% |
+| skupiska okien (dolna granica niezależnych) | 216 | 177 |
+| górna granica n_eff (×6,97/6 z M05) | **843** | 1 217 |
+
+Potrzebne do `FALSIFIED`: **n_eff ≥ 1 317**. Nieosiągalne w każdej kolumnie.
+MDE przy mocy 80%: 53,08% (primary, granica optymistyczna) do 56,11%
+(skupiska), wobec progu opłacalności 51,72%.
+
+**Zdarzenia skupiają się w sesji** (`FACT`): primary to 58% godzin, ale 69%
+zdarzeń. Mimo to przesłanka „600–700 na parę" była błędna — to 726 **łącznie**.
+
+**Zdarzenia nie są jednym zakładem na USD** (`FACT`): nakładają się niemal
+zawsze, ale kierunek dolara zgadza się w 57% par — niewiele ponad losowe.
+Prawdziwe n_eff leży między 216 a 843; krok B by je zawęził, ale obie
+granice leżą poniżej 1 317.
+
+### Czego M08 nie zrobił
+
+**Nie obejrzał ani jednego zwrotu w przód** — nie mówi nic o tym, czy H07
+ma przewagę. Mówi wyłącznie, że na RESEARCH w tej definicji nie da się tego
+rozstrzygnąć w stronę `FALSIFIED`. Nie zmierzył martwej strefy dokładnie
+(to byłby krok B) i nie badał innych `N` ani `quiet_bars`.
+
+---
+
 ## T001 — H01 Momentum, pomiar na wszystkich barach · `WITHDRAWN`
 
 **Status:** `WITHDRAWN` (2026-09-23, **ADR-011**) · **nigdy nieuruchomiony**
@@ -542,7 +590,12 @@ zamrożonego configu, hash gita, hash danych, diff drzewa. Wpis w
 
 ## T002 — H07 zdarzenie vs H02 stan, plus redundancja z H01
 
-**Status:** `PLANNED` · prerejestracja po zamknięciu T001
+**Status:** `WITHDRAWN` (2026-09-24, **ADR-021**) · nigdy nieprerejestrowany,
+N bez zmian. M07 zawęził zakres do samego H07; M08A wykazał, że `FALSIFIED`
+jest nieosiągalne przy każdym modelu zależności. Treść planu poniżej zostaje
+bez zmian.
+
+**Pierwotny status:** `PLANNED` · prerejestracja po zamknięciu T001
 
 **Cel.** Trzy pytania w jednym przebiegu, bo dzielą aparaturę i próbę:
 
