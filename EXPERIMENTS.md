@@ -22,7 +22,8 @@ Uruchomionych prób strategii w tym projekcie: **3**.
 | M05 | — | `CLOSED` | **PRZECHODZI** — n_eff warstwy A zmierzone (1 902–5 150); `FALSIFIED` osiągalne we wszystkich komórkach | ADR-015 domknięty |
 | M06 | — | `CLOSED` | **PRZECHODZI** — zero pełnego modelu kosztu to −0,0422 R; złożenie swapu identyczne co do bitu | ADR-016 |
 | T001 | H01 | `WITHDRAWN` | **nieuruchomiony** — konstrukcja bez mocy na osiągnięcie własnych kryteriów (M02) | ADR-011 |
-| T002 | H02, H07 | `PLANNED` | — | — |
+| M07 | — | `CLOSED` | **ROZSTRZYGA** — H02 redundantna z H01 (ρ = +0,832 z `mom_24`); zdarzenie H07 jest 44–54× rzadsze od stanu | H02 → `CLOSED`; T002 zwęża się do H07 |
+| T002 | H07 | `PLANNED` | — | zakres zawężony przez M07 |
 | T003 | H01 | `CLOSED` | **`NOT_SUPPORTED`** — relacja nieodróżnialna od zera we wszystkich 3 komórkach; górne ograniczenie **51,03%** trafności | H01 → `NOT_SUPPORTED`; ADR-019 |
 
 ---
@@ -422,6 +423,54 @@ i zamieniłoby lukę 0,96 SE w 1,69 SE, czyli przejście w niepowodzenie.
 Nie uruchomił symulatora. Nie policzył `mom_k`. Nie odkrył, że kalibracja
 przechodzi po doliczeniu swapu — to wynikało z tożsamości i było wiadome
 przed przebiegiem; treścią M06 jest zapisane zero i sprawdzenie złożenia.
+
+---
+
+## M07 — Redundancja cech H01↔H02 · `CLOSED` · **ROZSTRZYGA**
+
+**Cel.** Czy `donch_pos` (H02) pyta o to samo co `mom_k` (H01)? Rozstrzygnięcie
+**przed** prerejestracją T002, za zero prób.
+
+**Autoryzacja.** ADR-012 zakazuje liczenia cechy hipotezy bez żywej
+prerejestracji. **ADR-020** otwiera wąski wyjątek: pomiar cecha↔cecha,
+strukturalnie niezdolny spojrzeć w przód. Skrypt nie importuje warstwy
+etykiet ani symulatora i nie dotyka kolumn `fwd_atr`/`t1`; pilnuje tego
+`tests/test_m07_boundary.py`, czytając źródło.
+
+### Wynik (2026-09-24) · `20260924T154152Z-a734c5` · `control`, N bez zmian
+
+| Para cech | Spearman | `P(mom > 0 \| donch_pos > 0,80)` |
+|---|---|---|
+| `donch_pos_55` ↔ **`mom_24`** | **+0,832** | **0,973** |
+| `donch_pos_55` ↔ `mom_120` | +0,533 | 0,796 |
+| `donch_pos_55` ↔ `mom_480` | +0,260 | 0,630 |
+
+**H02 → `CLOSED`.** Próg 0,70 zadeklarowany przed przebiegiem; zmierzone
+0,832. Przy `P = 0,973` stan Donchiana jest niemal deterministyczną funkcją
+znaku krótkiego momentum — wynik odporny na wybór progu.
+
+**Dokument mylił się w szczególe** (`FACT`). `HYPOTHESES.md` podejrzewał
+redundancję z **`mom_480`** („jeśli cena jest w górnych 20% zakresu, `mom_480
+> 0` jest niemal pewne"). Zmierzone: ρ = +0,260, `P` = 0,630 — **nie jest
+niemal pewne**. Redundancja jest z `mom_24`. Podejrzenie było słuszne co do
+istoty, błędne co do okna, i nikt by tego nie zauważył bez pomiaru.
+
+### Drugi wynik: H07 nie jest H02 — `FACT`
+
+| | Stan (`donch_pos > 0,80`) | Zdarzenie wybicia |
+|---|---|---|
+| udział barów | 21,5–25,0% | **0,45–0,49%** |
+| iloraz | | **44–54× rzadziej** |
+
+Spójnie na wszystkich sześciu parach. `HYPOTHESES.md` H07 twierdził, że
+*„cokolwiek market-quant zmierzył, nie było wybiciem w sensie zdarzenia"* —
+teraz to jest zmierzone, nie deklarowane.
+
+### Czego M07 nie zrobił
+
+**Nie obejrzał ani jednego zwrotu w przód.** Nie mówi więc nic o przewadze
+H02 ani H07 — wyłącznie o tym, czy pytają o to samo. Wniosek „H02 nie ma
+przewagi, bo H01 jej nie miał" jest `INFERENCE` i **nie jest wynikiem M07**.
 
 ---
 

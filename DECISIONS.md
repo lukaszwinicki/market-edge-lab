@@ -1159,3 +1159,70 @@ jest od niego niezależny.
   wada dotyczy wyłącznie kontroli permutacyjnej.
 * `pbo.py` nadal niewpięty (ADR-017); przy okazji następnej prerejestracji
   warto rozstrzygnąć oba długi naraz.
+
+---
+
+## ADR-020 — Wąski wyjątek od ADR-012: pomiar cecha↔cecha, strukturalnie niezdolny spojrzeć w przód
+
+**Status:** ACCEPTED · 2026-09-24 · **Zawęża:** ADR-012 · **Umożliwia:** M07
+
+**Decyzja.** Wolno policzyć cechę hipotezy **nieprerejestrowanej** wyłącznie
+wtedy, gdy przebieg spełnia **wszystkie trzy** warunki:
+
+1. **Nie tworzy żadnej statystyki** parującej cechę z wielkością patrzącą
+   w przód — ani zwrotu, ani etykiety, ani wyniku transakcji.
+2. Jest **strukturalnie niezdolny** to zrobić: nie importuje warstwy etykiet
+   ani symulatora, nie woła `with_horizon`, nie dotyka kolumn `fwd_atr`,
+   `t1`, `exit_*`. Pilnuje tego test czytający źródło, nie obietnica.
+3. Jest zalogowany jako `control` i **deklaruje w `purpose`**, że korzysta
+   z tego wyjątku.
+
+**Powód.** ADR-012 zakazuje dotykania cechy hipotezy bez żywej prerejestracji
+— *„także przebieg nazwany kontrolą. Klasyfikacja `control`/`strategy` idzie
+za tym, co przebieg ogląda, nie za tym, po co go uruchomiono."* Reguła jest
+słuszna i właśnie udowodniła swoją wartość: ADR-013 zadziałał przeciwko
+zaleceniu ADR-012, a T003 wystartował z nietkniętą cechą.
+
+Ale reguła jest **szersza niż mechanizm, przed którym chroni**. Szkoda polega
+na **zobaczeniu wyniku hipotezy przed jej prerejestracją** — bo prerejestracja
+pisana po wyniku nie jest prerejestracją. Wynik hipotezy powstaje dopiero
+w zestawieniu cechy z przyszłością. **Korelacja dwóch cech ze sobą nie jest
+wynikiem żadnej z nich**: jest własnością geometrii szeregu cen i nie da się
+z niej wyprowadzić expectancy ani jednej.
+
+**Dlaczego to jest potrzebne teraz.** `HYPOTHESES.md` od początku podejrzewa
+H02 o **redundancję z H01** — jeśli cena jest w górnych 20% zakresu 55 barów,
+`mom_480 > 0` jest niemal pewne. Redundancji **nikt nigdy nie zmierzył**:
+`market-quant` testował koniunkcję obu, nie mierząc składników osobno, i to
+jest luka pomiarowa, którą T002 ma domknąć.
+
+Po T003 pytanie zrobiło się ostre. `mom_k` nie niesie opłacalnej informacji.
+Jeżeli `donch_pos` jest z nim silnie skorelowany, **T002 w dużej części
+powtórzy T003** — przy N = 10 z limitu 50 i podwyższonej poprzeczce DSR.
+Rozstrzygnięcie tego **przed** prerejestracją kosztuje zero prób;
+rozstrzygnięcie **w środku** T002 kosztuje próby za pytanie, które dało się
+zadać za darmo.
+
+**Precedens.** M02 rozstrzygnął, czy T001 ma sens, mierząc geometrię próby —
+i to zadecydowało o wycofaniu T001 (ADR-011). Różnica jest jedna: M02
+sprawdzał wyłącznie, czy cecha jest **określona**, nie licząc wartości.
+M07 policzy wartości. Ten ADR nazywa tę różnicę zamiast ją przemilczeć,
+i kompensuje ją warunkiem 2 — zakazem strukturalnym, nie deklaratywnym.
+
+**Alternatywy.** (a) *Zmierzyć redundancję wewnątrz T002.* Odrzucone: płaci
+próbami za pytanie rozstrzygalne za darmo, a przy wysokiej redundancji te
+próby byłyby wydane na powtórzenie T003. (b) *Nie mierzyć wcale i uruchomić
+T002 w pełnej postaci.* Odrzucone: `HYPOTHESES.md` stawia redundancję jako
+**warunek reaktywacji H02**, więc bez pomiaru H02 nie ma jak przejść ani do
+trialu, ani do `CLOSED`. (c) *Rozszerzyć wyjątek na „kontrole, które nie
+oceniają sygnału".* Odrzucone: to jest sformułowanie deklaratywne, czyli
+dokładnie to, co ADR-012 odrzucił. Wyjątek ma być sprawdzalny w źródle.
+
+**Konsekwencje.**
+
+* Wyjątek dotyczy **wyłącznie** pomiaru cecha↔cecha. Pierwsze zestawienie
+  `donch_pos` z czymkolwiek patrzącym w przód jest przebiegiem `strategy`
+  i wymaga żywej prerejestracji.
+* `src/features/breakout.py` powstaje jako moduł **niosący treść hipotezy**,
+  obok `momentum.py` — żeby dało się zobaczyć, co go importuje.
+* Reguła ogólna ADR-012 zostaje w mocy w pozostałym zakresie.

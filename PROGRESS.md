@@ -27,8 +27,8 @@ Seria kontrolna M01–M06 zamknięta; aparatura ma sprawdzone zero (M03),
 wzmocnienie (M04), rozkład zerowy metryki głównej (M05) i zero pełnego modelu
 kosztu (M06).
 
-**Testy: 520.** **Następny krok: decyzja, co dalej z rejestrem hipotez** —
-patrz „Co T003 zmienia w planie".
+**Testy: 553.** **M07 zamknął H02** bez ani jednej próby — T002 zwęża się
+do samego H07.
 
 ---
 
@@ -149,8 +149,8 @@ założeniem niekonserwatywnym, wyglądającym na ostrożne.
 |---|---|---|
 | ~~1–8~~ | ~~M01–M06, prerejestracja, warstwa etykiet, pełny koszt~~ | **ZAMKNIĘTE** |
 | ~~9~~ | ~~**T003 — uruchomienie**~~ | **ZAMKNIĘTY** 2026-09-24. H01 → `NOT_SUPPORTED`. N: 7 → 10 |
-| **10** | **Co dalej z rejestrem hipotez** ← **TU JESTEŚMY** | Decyzja, nie pomiar. Trzy opcje niżej |
-| 11 | **T002** — H07 zdarzenie vs H02 stan, redundancja z H01 | Prerejestracja; deflacja i kontrola muszą być zadeklarowane PRZED zamrożeniem (ADR-017, ADR-019) |
+| ~~10~~ | ~~**M07 — redundancja cech**~~ | **ZAMKNIĘTY** 2026-09-24. H02 → `CLOSED` (ρ = +0,832 z `mom_24`). Kontrola, N bez zmian |
+| **11** | **T002 — prerejestracja, już tylko H07** ← **TU JESTEŚMY** | Zakres zawężony przez M07. Deflacja (ADR-017) i kontrola zachowująca autokorelację (ADR-019) muszą być zadeklarowane PRZED zamrożeniem |
 
 ### Co T003 zmienia w planie
 

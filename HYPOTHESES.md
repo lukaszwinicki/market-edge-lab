@@ -29,7 +29,7 @@ Historia statusów jest dopisywana, nigdy nadpisywana.
  │    ├── oś: sesja / godzina .................... w protokole H01
  │    └── oś: kierunek long / short .............. w protokole H01
  │
- ├── H02 Breakout jako STAN ....................... PROPOSED · podejrzenie redundancji z H01
+ ├── H02 Breakout jako STAN ................ CLOSED · redundantna (M07, rho=0,83)
  │    │
  │    └── H07 Breakout jako ZDARZENIE ............ EXPLORATORY / POST-HOC · priorytet 2
  │
@@ -79,15 +79,15 @@ Komórka k = 480 jest najsłabsza i to ona wyznacza, co T003 potrafi wykluczyć.
 | Pole | Treść |
 |---|---|
 | **ID** | H02 |
-| **Status** | `PROPOSED` — zdegradowana względem prerejestracji wyjściowej |
+| **Status** | **`CLOSED`** (2026-09-24) — **redundantna z H01**, zmierzone w M07. Nie dostaje własnego trialu |
 | **Typ** | Confirmatory |
 | **Mechanizm** | Położenie ceny w górnej części niedawnego zakresu zapowiada kontynuację ruchu |
 | **Predykcja** | Zwroty warunkowane wysoką pozycją w zakresie są dodatnie ponad to, co wyjaśnia samo momentum |
-| **Problem — powód degradacji** | **Podejrzenie redundancji z H01.** Jeśli cena jest w górnych 20% zakresu 55 barów, `mom_480 > 0` jest niemal pewne — obie cechy mierzą prawdopodobnie ten sam stan trendowy. Redundancja nigdy nie została zmierzona. Dodatkowo: to, co `market-quant` faktycznie testował, było w dużej części właśnie tym stanem |
-| **Warunek reaktywacji** | H02 dostaje własny trial **tylko wtedy**, gdy pomiar wykaże, że wnosi informację ponad H01 (kryterium ilościowe ustalone w protokole T002 przed uruchomieniem). W przeciwnym razie → `CLOSED` jako redundantna |
+| **Redundancja — ZMIERZONA (M07)** | `FACT`. Spearman(`donch_pos_55`, `mom_24`) = **+0,832** na 224 tys. barów; `P(mom_24 > 0 \| donch_pos > 0,80)` = **0,973**. Stan Donchiana jest niemal deterministyczną funkcją znaku krótkiego momentum. **Dokument mylił się w szczególe**: podejrzenie wskazywało `mom_480`, a tam korelacja wynosi tylko **+0,260** i `P(mom > 0 \| stan)` = 0,630. Podejrzenie było słuszne co do istoty, błędne co do okna |
+| **Warunek reaktywacji — NIESPEŁNIONY** | Wymagał pomiaru wykazującego, że H02 wnosi informację ponad H01. M07 zmierzył odwrotnie: przy \|ρ\| = 0,832 wobec progu 0,70 zadeklarowanego przed przebiegiem. Powrót wymagałby nowego pomiaru na innej reprezentacji stanu, nie na `donch_pos_55` |
 | **Origin** | Prerejestracja projektu |
 | **Powiązane triale** | T002 (zaplanowany) — mierzy redundancję razem z H07 |
-| **Następny krok** | Pomiar redundancji z H01 w T002 |
+| **Następny krok** | Żaden. Hipoteza zamknięta jako redundantna. **T002 zwęża się do samego H07** |
 
 ---
 
@@ -165,7 +165,7 @@ Komórka k = 480 jest najsłabsza i to ona wyznacza, co T003 potrafi wykluczyć.
 | **Mechanizm** | Informacja, jeśli istnieje, siedzi w **przejściu** do nowego ekstremum: w momencie przełamania zakresu część uczestników jest zmuszona do reakcji (realizacja stopów, rekalibracja pozycji, wymuszone domknięcia). To jest zdarzenie o ograniczonym czasie trwania, nie stan |
 | **Predykcja** | Zwroty warunkowane zdarzeniem (pierwsze zamknięcie poza zakresem N barów po okresie przebywania wewnątrz) różnią się od zwrotów warunkowanych stanem (`donch_pos > 0,80`), i to w sposób niewyjaśniony przez samo momentum |
 | **Target** | Identyczny jak w H01 — porównywalność jest celem konstrukcji |
-| **Uzasadnienie nowości** | `FACT`: `donch_pos_55 > 0,80` to zmienna percentylowa i odpala **z definicji na ~20% wszystkich barów**. Cokolwiek `market-quant` zmierzył, nie było wybiciem w sensie zdarzenia. Ten mechanizm nie był dotknięty przez żaden eksperyment |
+| **Uzasadnienie nowości — POTWIERDZONE (M07)** | `FACT`. Stan (`donch_pos_55 > 0,80`) odpala na **21,5–25,0%** barów, zdarzenie wybicia na **0,45–0,49%** — **44 do 54 razy rzadziej**, spójnie na wszystkich sześciu parach. To NIE jest ta sama wielkość pod dwiema nazwami; `market-quant` mierzył stan i nazywał go wybiciem. Pomiar NIE dotknął zwrotów w przód (ADR-020) |
 | **Kryteria falsyfikacji** | `NOT_SUPPORTED`, gdy zwroty po zdarzeniu są nieodróżnialne od zwrotów w stanie po kontroli na momentum. Również `NOT_SUPPORTED`, gdy różnica istnieje, ale znika po kosztach — wtedy raportowana jako efekt bez wartości ekonomicznej |
 | **Ograniczenie interpretacyjne** | Wynik H07 **nie może** być użyty jako retroaktywne potwierdzenie H02 ani H01. Hipoteza powstała po wyniku i jej dowody mają niższą wagę niż dowody z testu prerejestrowanego |
 | **Powiązane triale** | T002 (zaplanowany) |
@@ -189,3 +189,5 @@ Komórka k = 480 jest najsłabsza i to ona wyznacza, co T003 potrafi wykluczyć.
 | 2026-09-24 | H01 | `PROPOSED` → `PREREGISTERED` | **T003 zamrożony** (`configs/t003_momentum.yaml`, `sha256 c832dcdc…`). Sześć warunków ADR-011 spełnione: ADR-014 (P_eff, geometria), ADR-015 (falsyfikacja na warstwie A, siatka 3 komórki), M05 (n_eff zmierzone, `FALSIFIED` osiągalne) |
 | 2026-09-24 | H03 | `PROPOSED` → `PREREGISTERED` | Wróciła jako oś raportowania `vol_regime` w zamrożonej prerejestracji T003. Nadal warunkowanie, nie sygnał |
 | 2026-09-24 | H01 | `PREREGISTERED` → `NOT_SUPPORTED` | **T003 zamknięty** (`20260924T150658Z-8daa11`, N: 7 → 10). CI95 zawiera zero we wszystkich 3 komórkach. Nie `FALSIFIED`, bo dolny koniec CI przy k = 120 i 480 wychodzi poza pasmo progu opłacalności — blokuje to niewykluczona relacja **ujemna**, nie dodatnia |
+| 2026-09-24 | H02 | `PROPOSED` → `CLOSED` | **M07** (`20260924T154152Z-a734c5`, kontrola, N bez zmian): Spearman(`donch_pos_55`, `mom_24`) = +0,832, `P(mom>0 \| stan)` = 0,973. Warunek reaktywacji z tego rejestru niespełniony. Pomiar NIE dotknął zwrotów w przód (ADR-020) |
+| 2026-09-24 | H07 | bez zmiany statusu | **M07** potwierdził uzasadnienie nowości pomiarem: zdarzenie jest 44–54× rzadsze od stanu. H07 zostaje jedyną treścią T002 po zamknięciu H02 |
