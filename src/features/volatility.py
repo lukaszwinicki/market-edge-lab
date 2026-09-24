@@ -171,3 +171,86 @@ def attach_atr_d1(decisions: pl.DataFrame, d1: pl.DataFrame, *,
         .join_asof(usable, left_on=on, right_on="available_from", strategy="backward")
         .drop("available_from")
     )
+
+
+def expanding_percentile(x: np.ndarray, min_obs: int) -> np.ndarray:
+    """Percentyl każdej wartości wśród wartości WCZEŚNIEJSZYCH i jej samej.
+
+    Okno rozszerzające, nigdy przesuwające się wstecz: pozycja w `i` liczy się
+    wyłącznie z `x[:i+1]`. Pierwsze `min_obs - 1` pozycji to NaN — percentyl
+    z dwudziestu dni nie jest percentylem reżimu, tylko szumem, a wypełnienie
+    go czymkolwiek byłoby zgadywaniem.
+
+    Konwencja: udział wartości `<=` bieżącej. ATR jest ciągły, więc remisy
+    praktycznie nie występują; konwencja jest tu po to, żeby była zapisana,
+    a nie po to, żeby na coś wpływała.
+    """
+    import bisect
+
+    out = np.full(x.size, np.nan)
+    seen: list[float] = []
+    for i, v in enumerate(x):
+        if np.isnan(v):
+            continue
+        bisect.insort(seen, float(v))
+        if len(seen) >= min_obs:
+            out[i] = bisect.bisect_right(seen, float(v)) / len(seen)
+    return out
+
+
+def vol_pct(d1: pl.DataFrame, min_days: int = 252) -> pl.DataFrame:
+    """`vol_pct_252` — pozycja `atr_d1_14` w oknie rozszerzającym.
+
+    Oś raportowania H03: reżim zmienności. **Nigdy sygnał kierunkowy** — ATR
+    nie ma kierunku, a percentyl ATR tym bardziej.
+
+    Dziedziczy `available_from` z `atr_d1()` bez zmiany, bo percentyl dnia `d`
+    liczy się z dni do `d` włącznie, a te są znane dokładnie wtedy, co
+    `atr_d1_14` dnia `d`: od początku doby `d+1`.
+    """
+    if d1.is_empty() or "atr_d1_14" not in d1.columns:
+        return d1.with_columns(pl.lit(None, dtype=pl.Float64).alias("vol_pct_252"))
+    return d1.sort("day").with_columns(
+        pl.Series("vol_pct_252",
+                  expanding_percentile(d1.sort("day").get_column("atr_d1_14").to_numpy(),
+                                       min_days))
+    )
+
+
+# Progi kubełków reżimu. Terciles — podział neutralny, bez punktu widzenia na
+# to, który reżim jest interesujący. ZADEKLAROWANE PRZED URUCHOMIENIEM T003;
+# prerejestracja wymienia oś `vol_regime`, nie wymieniając granic, więc
+# granice zapadają tutaj, a nie po zobaczeniu wyniku. Nie wchodzą do żadnego
+# kryterium falsyfikacji — te są liczone na komórce, nie na kubełku.
+VOL_REGIME_EDGES = (1 / 3, 2 / 3)
+VOL_REGIME_LABELS = ("low", "mid", "high")
+
+
+def vol_regime(pct: pl.Expr = pl.col("vol_pct_252")) -> pl.Expr:
+    """Kubełek reżimu z percentyla. `UNKNOWN`, gdy percentyl nieokreślony."""
+    lo, hi = VOL_REGIME_EDGES
+    return (
+        pl.when(pct.is_null() | pct.is_nan()).then(pl.lit("UNKNOWN"))
+        .when(pct < lo).then(pl.lit(VOL_REGIME_LABELS[0]))
+        .when(pct < hi).then(pl.lit(VOL_REGIME_LABELS[1]))
+        .otherwise(pl.lit(VOL_REGIME_LABELS[2]))
+    )
+
+
+def attach_vol_pct(decisions: pl.DataFrame, d1: pl.DataFrame, *,
+                   on: str = "ts") -> pl.DataFrame:
+    """Dołącz `vol_pct_252` do decyzji przez `available_from`, jak ATR."""
+    if decisions.is_empty():
+        return decisions.with_columns(pl.lit(None, dtype=pl.Float64).alias("vol_pct_252"))
+    usable = (
+        d1.filter(pl.col("vol_pct_252").is_not_null() & pl.col("vol_pct_252").is_not_nan())
+        .select("available_from", "vol_pct_252")
+        .sort("available_from")
+    )
+    if usable.is_empty():
+        return decisions.with_columns(pl.lit(None, dtype=pl.Float64).alias("vol_pct_252"))
+    return (
+        decisions.sort(on)
+        .join_asof(usable, left_on=on, right_on="available_from", strategy="backward")
+        .drop("available_from")
+    )
