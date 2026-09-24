@@ -301,3 +301,68 @@ def test_markdown_reports_layer_b_when_it_ran(tmp_path):
     assert "900 transakcji" in text
     assert "P_eff zrealizowane" in text
     assert "Nie zmienia werdyktu" in text
+
+
+# --------------------------------------------------------------------------
+# Kontrakt kolumn między `pooled` a checklistą leakage'u
+# --------------------------------------------------------------------------
+# Regresja: `pooled` nie zachowywało `bar_ts`, więc `check_bar_closed` trafiał
+# w gałąź „nie da się sprawdzić", szukał deklaracji, nie znajdował jej
+# i wywracał przebieg — JUŻ PO zapisaniu wpisu `start`, czyli po zapaleniu
+# trzech prób. Do tego najcenniejszy automat na off-by-one przestawał działać.
+
+from t003_momentum import LEAKAGE_DECLARATIONS, pooled  # noqa: E402
+
+
+def _series_for_pooled():
+    n = 40
+    ts = [dt.datetime(2019, 6, 3, 9, tzinfo=UTC) + dt.timedelta(hours=i) for i in range(n)]
+    df = pl.DataFrame({
+        "ts_decision": ts,
+        "bar_ts": [t - dt.timedelta(hours=1) for t in ts],
+        "t1": [t + dt.timedelta(days=3) for t in ts],
+        "symbol": ["EURUSD"] * n,
+        "year": [2019] * n,
+        "hour": [t.hour for t in ts],
+        "vol_regime": ["mid"] * n,
+        "vol_pct_252": [0.5] * n,
+        "ref_price": [1.1] * n,
+        "atr_d1_14": [0.01] * n,
+        "fwd_atr": np.linspace(-1, 1, n),
+        "mom_24": np.linspace(1, -1, n),
+        "aged_mom_24": np.linspace(1, -1, n) * 0.99,
+    })
+    return {"EURUSD": df}
+
+
+def test_pooled_keeps_bar_ts_for_the_off_by_one_check():
+    out = pooled(_series_for_pooled(), "mom_24", "aged_mom_24")
+    assert "bar_ts" in out.columns
+
+
+def test_pooled_output_lets_the_checklist_verify_bar_closure_automatically():
+    """Sedno regresji: pozycja ma wyjść `PASS`, a nie `MANUAL`/`FAIL`."""
+    from src.validation.leakage import PASS, Checklist, check_bar_closed
+    cl = Checklist()
+    check_bar_closed(cl, pooled(_series_for_pooled(), "mom_24", "aged_mom_24"), 3600)
+    assert cl.checks[0].key == "bar_closed"
+    assert cl.checks[0].status == PASS
+
+
+def test_bar_closure_is_not_declared_away_in_the_runner():
+    """Gdyby `bar_closed` trafiło do deklaracji, checklista przeszłaby,
+    a sprawdzenie zniknęłoby po cichu — czyli najgorszy możliwy wariant."""
+    assert "bar_closed" not in LEAKAGE_DECLARATIONS
+
+
+def test_every_declaration_covers_a_real_checklist_item():
+    from src.validation.leakage import MANUAL_ITEMS
+    assert set(LEAKAGE_DECLARATIONS) == set(MANUAL_ITEMS)
+
+
+def test_pooled_keeps_everything_layer_b_needs():
+    """Warstwa B liczy się na wyniku `pooled`; brak kolumny objawiłby się
+    dopiero po godzinach symulacji tickowej."""
+    out = pooled(_series_for_pooled(), "mom_24", "aged_mom_24")
+    for col in ("ts_decision", "t1", "ref_price", "atr_d1_14", "mom_24"):
+        assert col in out.columns

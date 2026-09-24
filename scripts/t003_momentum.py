@@ -402,14 +402,72 @@ def build_observations(cfg: dict, pre: dict, symbols: list[str], h: int,
 
 def pooled(series: dict[str, pl.DataFrame], feature_col: str,
            aged_col: str) -> pl.DataFrame:
-    keep = ["ts_decision", "symbol", "year", "hour", "vol_regime", "vol_pct_252",
-            "fwd_atr", feature_col, aged_col, "ref_price", "atr_d1_14", "t1"]
+    # `bar_ts` MUSI tu być: na nim stoi automatyczne sprawdzenie, czy bar
+    # użyty do decyzji był zamknięty (`check_bar_closed`, DATA.md §8). Bez
+    # niego checklista nie ma czego porównać i zamienia najcenniejszy test na
+    # off-by-one w deklarację do napisania ręcznie.
+    keep = ["ts_decision", "bar_ts", "symbol", "year", "hour", "vol_regime",
+            "vol_pct_252", "fwd_atr", feature_col, aged_col, "ref_price",
+            "atr_d1_14", "t1"]
     return pl.concat([layer_a(df, feature_col).select(keep) for df in series.values()])
 
 
 # --------------------------------------------------------------------------
 # Samosprawdzenie na danych syntetycznych
 # --------------------------------------------------------------------------
+
+#: Pozycje `DATA.md` §8, których nie da się sprawdzić z artefaktów przebiegu.
+#: Każda jest zadeklarowana IMIENNIE — milczenie liczy się jako niepowodzenie
+#: (ADR: `src/validation/leakage.py`). Stała, a nie literał w dwóch miejscach,
+#: żeby checklista wstępna i końcowa nie mogły się rozjechać.
+LEAKAGE_DECLARATIONS = {
+    "expanding_windows":
+        "vol_pct_252 w oknie rozszerzającym; atr Wildera przyczynowy — "
+        "test_labels.py::test_expanding_percentile_never_looks_forward",
+    "no_fit_on_test":
+        "NIE DOTYCZY — T003 nie dopasowuje modelu, brak fit() w całej "
+        "ścieżce (prereg: layer_a, statystyka opisowa relacji)",
+    "daily_from_closed_day":
+        "atr_d1_14 i vol_pct_252 łączone przez available_from = doba+1, "
+        "join_asof zamiast arytmetyki — test_volatility.py, test_labels.py",
+    "simulator_blind":
+        "simulate_trade tnie okno samodzielnie; trzy testy na brak "
+        "podglądania w test_simulator.py (dług M01 spłacony w M03)",
+    "macro_alfred":
+        "NIE DOTYCZY — T003 nie używa danych makro (prereg: feature = mom_k)",
+    "purge_embargo":
+        "NIE DOTYCZY jako podział — T003 nie dzieli próby ani nie "
+        "dopasowuje modelu. Nakładanie wchodzi do WNIOSKOWANIA: block "
+        "bootstrap po dniu i n_eff zmierzone w M05, nie liczba wierszy",
+}
+
+
+def _checklist(cfg: dict, run, pre: dict, end: dt.datetime,
+               obs: pl.DataFrame, *, n_rows: int, cells: dict | None):
+    """Checklista leakage'u dla tego przebiegu.
+
+    Wołana DWA RAZY: raz przed pętlą po komórkach (część strukturalna) i raz
+    po niej (pełna). Pierwsze wywołanie ma zatrzymać przebieg w pierwszych
+    sekundach, jeżeli coś jest nie tak z konfiguracją, proweniencją, granicą
+    segmentu albo wyrównaniem bara — a nie po całym rachunku. Drugie dokłada
+    ramię kontrolne, które wcześniej po prostu nie istnieje.
+    """
+    from src.validation.leakage import run_checklist
+
+    decl = dict(LEAKAGE_DECLARATIONS)
+    if cells is None:
+        decl["aged_feature"] = ("sprawdzane po policzeniu komórek — patrz "
+                                "checklista końcowa tego samego przebiegu")
+    n_eff_min = min(int(v) for v in
+                    pre["layer_a"]["power"]["n_eff_measured"].values())
+    return run_checklist(
+        cfg, json.loads((run.dir / "run.json").read_text(encoding="utf-8")),
+        ROOT / "trials" / "trials.jsonl",
+        observations=obs,
+        segment=(dt.datetime.fromisoformat(
+            pre["sample"]["first_decision"]).replace(tzinfo=UTC), end),
+        n_rows=n_rows, n_eff=n_eff_min, cells=cells, declarations=decl)
+
 
 def write_markdown(path: Path, report: dict, pre: dict) -> None:
     """`t003.md` — raport, który da się przeczytać bez odpalania niczego."""
@@ -620,6 +678,23 @@ def main(argv=None) -> int:
         series = build_observations(cfg, pre, symbols, h, lookbacks)
         start_h, end_h = session_hours(cfg)
 
+        # Ramka kontrolna dla checklisty: komórka o NAJDŁUŻSZYM oknie cechy,
+        # czyli o najmniejszej próbie. Wybrana z `lookbacks`, nie z wyników —
+        # wybieranie po zmierzonym `n_obs` wymagałoby policzenia komórek,
+        # a to jest dokładnie ten rachunek, przed którym chcemy się zatrzymać.
+        widest = max(lookbacks)
+        obs_check = pooled({s: session_filter(df, start_h, end_h)
+                            for s, df in series.items()},
+                           f"mom_{widest}", f"aged_mom_{widest}")
+
+        # CHECKLISTA WSTĘPNA (DATA.md §8) — część niezależna od wyników.
+        # Config, proweniencja, rejestr, granica segmentu i wyrównanie bara
+        # nie zależą od tego, co wyjdzie, więc ich niepowodzenie ma zatrzymać
+        # przebieg TERAZ, a nie po całym bootstrapie.
+        _checklist(cfg, run, pre, end, obs_check,
+                   n_rows=obs_check.height, cells=None).raise_if_failed()
+        print(f"  checklista wstępna: PRZECHODZI ({obs_check.height} obserwacji)")
+
         report: dict = {"params": params, "cells": {}}
         cells = {}
         for k in lookbacks:
@@ -709,44 +784,12 @@ def main(argv=None) -> int:
                 played.write_parquet(run.dir / f"observations_{c}.parquet")
                 print(f"  warstwa B {c}: {res_b['n_played']} transakcji")
 
-        # CHECKLISTA LEAKAGE'U (DATA.md §8) — przed zapisaniem czegokolwiek.
-        # CLAUDE.md: przed KAŻDYM raportowanym wynikiem. Pozycje, których nie
-        # da się sprawdzić z artefaktów, są zadeklarowane tutaj imiennie —
-        # milczenie jest w tym module traktowane jak niepowodzenie.
-        from src.validation.leakage import run_checklist
-        worst = min(cells, key=lambda c: cells[c]["n_obs"])
-        obs_check = pooled({s: session_filter(df, start_h, end_h)
-                            for s, df in series.items()},
-                           f"mom_{worst[1:]}", f"aged_mom_{worst[1:]}")
-        checklist = run_checklist(
-            cfg, json.loads((run.dir / "run.json").read_text(encoding="utf-8")),
-            ROOT / "trials" / "trials.jsonl",
-            observations=obs_check,
-            segment=(dt.datetime.fromisoformat(
-                pre["sample"]["first_decision"]).replace(tzinfo=UTC), end),
-            n_rows=cells[worst]["n_obs"],
-            n_eff=int(pre["layer_a"]["power"]["n_eff_measured"][worst[1:]]),
-            cells=cells,
-            declarations={
-                "expanding_windows":
-                    "vol_pct_252 w oknie rozszerzającym; atr Wildera przyczynowy — "
-                    "test_labels.py::test_expanding_percentile_never_looks_forward",
-                "no_fit_on_test":
-                    "NIE DOTYCZY — T003 nie dopasowuje modelu, brak fit() w całej "
-                    "ścieżce (prereg: layer_a, statystyka opisowa relacji)",
-                "daily_from_closed_day":
-                    "atr_d1_14 i vol_pct_252 łączone przez available_from = doba+1, "
-                    "join_asof zamiast arytmetyki — test_volatility.py, test_labels.py",
-                "simulator_blind":
-                    "simulate_trade tnie okno samodzielnie; trzy testy na brak "
-                    "podglądania w test_simulator.py (dług M01 spłacony w M03)",
-                "macro_alfred":
-                    "NIE DOTYCZY — T003 nie używa danych makro (prereg: feature = mom_k)",
-                "purge_embargo":
-                    "NIE DOTYCZY jako podział — T003 nie dzieli próby ani nie "
-                    "dopasowuje modelu. Nakładanie wchodzi do WNIOSKOWANIA: block "
-                    "bootstrap po dniu i n_eff zmierzone w M05, nie liczba wierszy",
-            })
+        # CHECKLISTA KOŃCOWA — pełna, z ramieniem kontrolnym, przed zapisaniem
+        # czegokolwiek (CLAUDE.md: przed KAŻDYM raportowanym wynikiem).
+        # Część strukturalna przeszła już przed pętlą; tu dochodzi jedyna
+        # pozycja, która wymaga policzonych komórek.
+        checklist = _checklist(cfg, run, pre, end, obs_check,
+                               n_rows=obs_check.height, cells=cells)
         checklist.raise_if_failed()
         report["leakage_checklist"] = checklist.as_report()
         print(f"  checklista leakage'u: {checklist.as_report()['n_checks']} pozycji, "
