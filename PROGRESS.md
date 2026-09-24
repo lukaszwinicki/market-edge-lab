@@ -13,16 +13,20 @@ Każdą liczbę sprawdzać komendą, nie brać na wiarę.
 
 ## Gdzie jesteśmy
 
-**Seria kontrolna M01–M04 ZAMKNIĘTA.** Aparatura ma sprawdzone **zero**
-(M03) i sprawdzone **wzmocnienie** (M04), a oba pomiary zgadzają się do
-**0,0007 R**. Pierwszy eksperyment na hipotezie (T001) został **wycofany
-przed uruchomieniem** — nie miał mocy osiągnąć własnych kryteriów.
+**Seria kontrolna M01–M05 ZAMKNIĘTA.** Aparatura ma sprawdzone **zero**
+(M03), sprawdzone **wzmocnienie** (M04) i zmierzony **rozkład zerowy metryki
+głównej** (M05).
+
+**T003 jest PREREJESTROWANY i ZAMROŻONY** (2026-09-24) —
+`configs/t003_momentum.yaml`, `sha256 c832dcdc…`. Pierwszy protokół na
+hipotezie, który spełnia wszystkie sześć warunków ADR-011. Nieuruchomiony.
 
 **Licznik prób: N = 7** (odziedziczone, ADR-004). Uruchomionych prób
-strategii w tym projekcie: **0**. M01–M04 to kontrole, nie liczą się do N.
+strategii w tym projekcie: **0**. M01–M05 to kontrole, nie liczą się do N.
+T003 doliczy **3** (N → 10), nie 6 jak T001.
 
-**Testy: 264.** **Następny krok: prerejestracja T003** — pierwszy krok,
-który nie jest kontrolą.
+**Testy: 281.** **Następny krok: dwa warunki startu T003** — warstwa etykiet
+i wpięcie swapu. Oba implementacyjne, żadnych decyzji metodologicznych.
 
 ---
 
@@ -33,48 +37,73 @@ który nie jest kontrolą.
 | **M01** | **PRZECHODZI** | Port `market-quant` daje ramki **identyczne co do bitu**. Świece 2015–2023, 6 par; odcisk `sha256 = 6b6b3aa4…`; pieczęć 2024–2026 działa. Godzina `2023-12-24 22:00` przyjęta z dowodem (ADR-010) |
 | **M02** | **NIEROZSTRZYGNIĘTE** → T001 wycofany | Audyt mocy (ADR-009). Bramka nie rozstrzygnęła, ale wynik pod nią wystarczył |
 | **M03** | **PRZECHODZI** | Wejścia losowe dają expectancy = −koszt w granicach **1 SE**. Wynikowi negatywnemu będzie można wierzyć |
-| **M04** | **PRZECHODZI** | Wzmocnienie poprawne; próg wykrywalności to **57,3% / 61,9%** trafności kierunku |
+| **M04** | **PRZECHODZI** | Wzmocnienie poprawne; próg opłacalności **51,72%** trafności kierunku |
+| **M05** | **PRZECHODZI** | `n_eff` warstwy A **zmierzone**: 1 902–5 150. `FALSIFIED` osiągalne we wszystkich komórkach T003 |
 
 Raporty: `reports/m02_power_audit.md`, `m03_random_control.md`,
-`m04_sensitivity.md`. Przebiegi: `20260923T172201Z-fa3731`,
-`…T175353Z-087adf`, `…T181510Z-963686`.
+`m04_sensitivity.md`, `m05_layer_a_null.md`. Przebiegi:
+`20260923T172201Z-fa3731`, `…T175353Z-087adf`, `…T181510Z-963686`,
+`20260924T134703Z-cd0d96`.
 
 ### Liczby, które trzeba mieć w głowie
 
-| | h = 3 d | h = 10 d |
-|---|---|---|
-| n_eff (konserwatywnie: P_eff ≈ 2) | 1 040 | 315 |
-| σ wyniku w R | 0,9165 | 0,9261 |
-| **MDE** (moc 80%, α 0,05) | **0,0796 R** | **0,1463 R** |
-| Koszt modelowany / + marża swapu 1% | 0,0297 / **0,0422 R** | 0,0169 / **0,0392 R** |
-| **Próg opłacalności** (trafność kierunku) | **51,72%** | **51,42%** |
-| **Próg wykrywalności** | **57,33%** | **61,91%** |
+Siatka T003 — **warstwa A**, h = 3 d, Spearman. Próg opłacalności **51,72%**.
+Progi wykrywalności **po korekcie Holma** na 3 komórki — tak, jak działa
+kryterium `SUPPORTED`. Bez korekty byłoby 51,24 / 51,86 / 52,05%.
+
+| k | n_eff (zmierzone) | Próg wykrywalności | Martwa strefa | `FALSIFIED` |
+|---|---|---|---|---|
+| 24 | 5 150 | 51,44% | **−0,28 pp** | osiągalne (0,51) |
+| 120 | 2 302 | 52,15% | +0,43 pp | osiągalne (0,76) |
+| 480 | 1 902 | 52,36% | +0,64 pp | osiągalne (0,83) |
+
+`FALSIFIED` nie wymaga korekty — wymaga spełnienia we **wszystkich** komórkach
+naraz (intersection-union), a taki test kontroluje błąd I rodzaju bez niej.
+Liczba w nawiasie to iloraz „połowa CI95 / próg opłacalności": poniżej 1
+znaczy, że wynik bliski zera **rozstrzyga**, zamiast wpadać w „nie wiadomo".
+
+Warstwa B, dla porównania i do wyceny ekonomicznej:
+
+| | h = 3 d |
+|---|---|
+| σ wyniku w R (dla geometrii 1,1/2,2) | 0,9165 |
+| Koszt modelowany / + marża swapu 1% | 0,0297 / **0,0422 R** |
+| Próg wykrywalności warstwy B | **57,33%** — **nie jest już instrumentem falsyfikacji** |
 
 ---
 
-## Cztery ustalenia, które zmieniają plan
+## Sześć ustaleń, które ukształtowały T003
 
 **1. σ była dziedziczona, nie mierzona — i 2× za mała** (M02, `FACT`).
-ADR-009 implikował 0,455 R przez przeskalowanie połowy CI poprzednika
-przez √n. Zmierzone: **0,92 R**. n_eff zgadł nieźle, rozrzut pomylił
-dwukrotnie. Stąd wycofanie T001 (ADR-011).
+ADR-009 implikował 0,455 R; zmierzone **0,92 R**. Stąd wycofanie T001
+(ADR-011).
 
-**2. Eksperyment widzi tylko efekty 4–8× większe od najmniejszego
-opłacalnego** (M04, `INFERENCE`). Między 51,7% a 57,3% trafności strategia
-**naprawdę zarabia**, a pomiar zwróci `NOT_SUPPORTED`. Przy h=10d T001
-miałby przy tym mniejszą moc niż eksperyment, który miał poprawić
-(0,146 R wobec 0,097 R).
+**2. Symulator nie zna swapu** (M03, `FACT`). Przy h=10d brakujący człon to
+**1,32× cały modelowany koszt**. `INFERENCE`: przewaga kosztowa długiego
+horyzontu była **artefaktem pominięcia swapu** — stosunek kosztu h=3d/h=10d
+spada z 1,76× do **1,08×**. **h=3d dominuje h=10d na obu osiach.**
 
-**3. Symulator nie zna swapu** (M03, `FACT`). Przy h=10d i marży 1%
-brakujący człon to **1,32× cały modelowany koszt**. `INFERENCE`: przewaga
-kosztowa długiego horyzontu była **artefaktem pominięcia swapu** — stosunek
-kosztu h=3d/h=10d spada z 1,76× do **1,08×**. Zostaje różnica w mocy, 3× na
-korzyść h=3d. **h=3d dominuje h=10d na obu osiach.**
+**3. Bariery prawie nie wiążą** (M04, `FACT`). Przy doskonałym kierunku 84%
+pozycji kończy na barierze czasowej. Ale zmiana geometrii jest **bezwartościowa**
+(ADR-014, `FACT`): σ i wzmocnienie skalują się razem, więc usunięcie barier
+w całości zmienia próg trafności o **+0,07 pp**, unieważniając przy tym σ z M02
+i kalibrację M03/M04.
 
-**4. Bariery prawie nie wiążą** (M04, `FACT`). Przy **doskonałym** kierunku
-84% pozycji kończy na barierze czasowej; średni |ruch| to **40% dystansu do
-TP**. Triple-barrier jest tu w dużej mierze dekoracją — dokłada ryzyko luki
-i złożoność, rozstrzygając 16% przypadków.
+**4. Martwa strefa brała się z warstwy, nie z geometrii ani z modelu par**
+(ADR-015, `INFERENCE` potwierdzony przez M05). Kryteria T001 stały na
+expectancy w net R, czyli na warstwie B — wbrew ADR-003, który przypisał
+warstwie A „wykrywanie, maksymalna moc". Przeniesienie ich na warstwę A
+zwęziło martwą strefę z **5,61 pp do 0,33 pp** w najgorszej komórce.
+
+**5. `P_eff` warstwy A wynosi 3,21, nie 2,00** (M05, `FACT`). Liczba z ADR-014
+dotyczy statystyk liniowych w znaku cechy. Dla statystyki relacji kowariancja
+idzie jak iloczyn `ρ^cecha · ρ^zwrot`. Zmierzone, nie przeniesione.
+
+**6. „Zrównanie znaków" NIE jest konserwatywne na warstwie A** (M05, `FACT`).
+Model, który miał być krańcem pesymistycznym, dał `P_eff ≈ 7,0` — więcej niż
+sześć par niezależnych, bo ujemne iloczyny **kasują** wariancję.
+`INFERENCE`: przepisanie `P_eff = 2,00` z warstwy B „dla ostrożności" byłoby
+założeniem niekonserwatywnym, wyglądającym na ostrożne.
 
 ---
 
@@ -82,9 +111,11 @@ i złożoność, rozstrzygając 16% przypadków.
 
 | ADR | Treść |
 |---|---|
-| **ADR-011** | T001 → `WITHDRAWN`, nigdy nieuruchomiony, **N bez zmian**. H01 i H03 → `PROPOSED` — hipotezy żyją, protokół nie. Zastępuje je **T003**. Wycofanie było dopuszczalne, bo M02 nie obejrzał niczego, co dotyczy H01. **Każde przyszłe wycofanie wymaga tego samego dowodu** |
-| **ADR-012** | M04 w postaci z fazy 0 nie wystartuje: wymagałby policzenia `mom_k`, czyli oceny sygnału bez żywej prerejestracji. W planie z fazy 0 było to bezpieczne, bo T001 był zamrożony — **wycofanie T001 usunęło tę ochronę, a ADR-011 tego nie zauważył**. Reguła ogólna: **dopóki hipoteza nie ma żywej, zamrożonej prerejestracji, żaden przebieg nie może dotknąć jej cechy** |
-| **ADR-013** | Ramię „wyrocznia postarzona" z ADR-012 nie powstało — byłoby znakiem zwrotu z przeszłości, czyli cechą momentum, co łamałoby regułę z tego samego ADR-012. Pytanie o przesunięcie o jeden bar przeszło na testy syntetyczne |
+| **ADR-011** | T001 → `WITHDRAWN`, nigdy nieuruchomiony, **N bez zmian**. Zastępuje go T003. **Każde przyszłe wycofanie wymaga tego samego dowodu** |
+| **ADR-012** | Dopóki hipoteza nie ma żywej, zamrożonej prerejestracji, **żaden przebieg nie może dotknąć jej cechy** |
+| **ADR-013** | Ramię „wyrocznia postarzona" nie powstało — łamałoby regułę z ADR-012. Reguła zadziałała przeciwko zaleceniu z tego samego ADR-u |
+| **ADR-014** | `P_eff = 2,00` dla warstwy B (model implikowany przez **mechanizm H01**, nie ostrożność). **Geometria barier bez zmian** — zmiana warta ≤0,07 pp, kosztuje powtórzenie audytu mocy |
+| **ADR-015** | Kryteria falsyfikacji **wracają na warstwę A** — to przywrócenie ADR-003, nie przebudowa. Warstwa B = wycena, nie test. Siatka **3 komórki**, h=10d usunięty. N: 7 → 10 |
 
 ---
 
@@ -92,19 +123,16 @@ i złożoność, rozstrzygając 16% przypadków.
 
 | # | Krok | Rozstrzyga |
 |---|---|---|
-| ~~1–4~~ | ~~**M01–M04** — seria kontrolna~~ | **ZAMKNIĘTA** |
-| **5** | **Prerejestracja T003** ← **TU JESTEŚMY** | Sześć warunków (niżej). Każda zmiana geometrii barier wymaga **nowego pomiaru mocy**, nie przeliczenia |
-| 6 | **T003** — H01 momentum, konstrukcja przeprojektowana | Pytanie, na które `market-quant` nie miał mocy odpowiedzieć |
-| 7 | **T002** — H07 zdarzenie vs H02 stan, redundancja z H01 | Prerejestracja po zamknięciu T003 |
+| ~~1–5~~ | ~~**M01–M05** — seria kontrolna~~ | **ZAMKNIĘTA** |
+| ~~6~~ | ~~**Prerejestracja T003**~~ | **ZAMROŻONA** 2026-09-24, `sha256 c832dcdc…` |
+| **7** | **Warstwa etykiet** ← **TU JESTEŚMY** | Blokuje obie warstwy T003. Buduje się od nowa, bez treści hipotezy w module |
+| 8 | **Swap w `CostModel` + M06** (powtórzona kalibracja M03) | Blokuje **wyłącznie warstwę B**. Kontrola, nie próba |
+| 9 | **T003** — uruchomienie | N: 7 → 10 |
+| 10 | **T002** — H07 zdarzenie vs H02 stan, redundancja z H01 | Prerejestracja po zamknięciu T003 |
 
-**Sześć warunków prerejestracji T003** (ADR-011 + ADR-012, szczegóły
-w `EXPERIMENTS.md`): model niezależności par · σ zmierzona dla zadeklarowanej
-geometrii · osiągalne progi falsyfikacji · granica okien w OOS · ramię
-„cecha vs cecha postarzona" · model kosztu ze swapem.
-
-**Przed T003 trzeba dodatkowo:** zbudować warstwę etykiet od nowa, bez treści
-hipotezy w module. Nic poza tym już nie blokuje — seria kontrolna zamknięta,
-testy na look-ahead spłacone w M03.
+**Dlaczego warunek 6 nie blokuje kryteriów.** Falsyfikacja stoi na warstwie A,
+a ta jest pomiarem informacji, nie ekonomii (ADR-003) — nie zna kosztów.
+Swap blokuje **każdą liczbę raportowaną z warstwy B** i nic ponadto.
 
 ---
 
@@ -113,22 +141,22 @@ testy na look-ahead spłacone w M03.
 | Sprawa | Stan |
 |---|---|
 | **Kohorta replikacyjna nie istnieje** | Zero bajtów dla XAUUSD, WTI, S&P 500, DAX. Replikacja niemożliwa → **żadna hipoteza nie osiągnie `SURVIVED`** w tej fazie (ADR-008). Najwyższy status: `SUPPORTED` |
+| **Sześć par to sześć odmian jednego zakładu** | Średnia \|ρ\| = 0,401 na oknie h, 0,389–0,404 na oknach k. Stąd `P_eff` ≈ 3,2, a nie 6. **Jedyna dźwignia ruszająca to o czynnik to instrumenty spoza czynnika USD** — czyli ta sama kohorta replikacyjna, której nie ma. Zdobycie tych danych kupuje H01 więcej mocy niż cokolwiek w prerejestracji |
 | **Segment RESEARCH był oglądany** | 7 prób poprzednika na tych samych danych. Poprzeczka DSR startuje podwyższona (ADR-004) |
-| **Moc jest za mała przy h=10d** | MDE 0,085–0,146 R — bramki nie przechodzi przy żadnym modelu par. Wąskim gardłem okazała się σ, nie samo nakładanie okien |
-| **Model niezależności par nierozstrzygnięty** | Nawias [2,0; 6,0] ciasny matematycznie, ale wybór punktu to **decyzja**, warta czynnika 1,7 na MDE. Warunek 1 dla T003 |
-| **Swap nie jest wpięty w symulator** | `src/execution/swap.py` liczy po fakcie i ma testy, ale `CostModel` go nie zna. Wpięcie wymaga **powtórzenia kalibracji M03**. Warunek 6 dla T003 |
-| **Granica okien wychodzących w OOS** | M02 przyjął wariant nietykający OOS. Do jawnej deklaracji. Warunek 4 dla T003 |
-| **Warstwa etykiet nie istnieje** | Nie została przeniesiona, bo niesie treść hipotezy. Musi powstać przed T003 |
+| **Warstwa etykiet nie istnieje** | Nie została przeniesiona, bo niesie treść hipotezy. **Warunek startu T003** |
+| **Swap nie jest wpięty w symulator** | `src/execution/swap.py` liczy po fakcie i ma testy, ale `CostModel` go nie zna. Wpięcie wymaga **powtórzenia kalibracji M03** (M06). Warunek startu warstwy B |
+| **Martwa strefa przy k = 480** | +0,64 pp po korekcie Holma: efekt o trafności między 51,72% a 52,36% będzie realnie opłacalny, a pomiar zwróci `NOT_SUPPORTED`. **Zapisane w prerejestracji przed uruchomieniem**, nie do odkrycia po fakcie |
 | **Rentowności 2-letnie** `UNKNOWN` | Brak spójnej definicji dla wszystkich walut. Blokuje H04 |
-| **Kontrola przesuniętych cech** `UNKNOWN` | Anomalia poprzednika (wynik z cechami postarzonymi lepszy) **nadal nierozstrzygnięta na cesze prawdziwej** — przechodzi do T003 jako warunek 5 |
+| **Kontrola przesuniętych cech** `UNKNOWN` | Anomalia poprzednika nadal nierozstrzygnięta na cesze prawdziwej — rozstrzyga ją **ramię kontrolne wewnątrz T003**, z kryterium zapisanym przed uruchomieniem |
 | Zależność od ścieżki do ticków | Projekt nie jest samowystarczalny na poziomie danych źródłowych (ADR-007) |
 
 ---
 
 ## Czego NIE robimy
 
-- Nie uruchamiamy backtestu przed prerejestracją spełniającą ADR-011 + ADR-012.
-- **Nie dotykamy `mom_k` żadnym przebiegiem**, dopóki T003 nie jest zamrożony (ADR-012).
+- **Nie zmieniamy `configs/t003_momentum.yaml`.** Po zamrożeniu każda zmiana
+  to nowy eksperyment z nowym ID, nie poprawka T003.
+- **Nie dotykamy `mom_k` żadnym przebiegiem poza T003** (ADR-012).
 - Nie dodajemy ML — dopóki nie wiadomo, czy istnieje prosty efekt.
 - Nie mnożymy hipotez, żeby uniknąć wyniku negatywnego.
 - Nie otwieramy segmentu 2024–2026.

@@ -22,8 +22,8 @@ Historia statusów jest dopisywana, nigdy nadpisywana.
 [market-quant / V1a — reguła FALSIFIED; mechanizmy NIEZMIERZONE]
  │  koniunkcja mom_480>0 ∧ donch_pos_55>0,80, 172 obs. efektywne, ADR-001
  │
- ├── H01 Momentum ................................. PROPOSED · priorytet 1
- │    │                                              (T001 WITHDRAWN, ADR-011 → T003)
+ ├── H01 Momentum ............................ PREREGISTERED · priorytet 1
+ │    │                                        (T001 WITHDRAWN → T003 zamrożony)
  │    │
  │    ├── oś: reżim zmienności (H03) ............. w protokole H01, nie osobna hipoteza
  │    ├── oś: sesja / godzina .................... w protokole H01
@@ -33,8 +33,8 @@ Historia statusów jest dopisywana, nigdy nadpisywana.
  │    │
  │    └── H07 Breakout jako ZDARZENIE ............ EXPLORATORY / POST-HOC · priorytet 2
  │
- ├── H03 Reżim zmienności ......................... PROPOSED jako warunkowanie
- │                                                   (protokół zniknął z T001, ADR-011)
+ ├── H03 Reżim zmienności .................... PREREGISTERED jako warunkowanie
+ │                                            (oś raportowania w T003)
  ├── H04 Carry / różnica stóp ..................... PROPOSED · blokada danych
  ├── H05 Cross-asset .............................. DEFERRED · brak danych
  └── H06 Kombinacja ............................... DEFERRED · bramka wejścia
@@ -47,25 +47,30 @@ Historia statusów jest dopisywana, nigdy nadpisywana.
 | Pole | Treść |
 |---|---|
 | **ID** | H01 |
-| **Status** | `PROPOSED` (2026-09-23) — **prerejestracja T001 wycofana przed uruchomieniem, ADR-011**. Hipoteza żyje, jej protokół nie. Nowy protokół: T003 |
+| **Status** | `PREREGISTERED` (2026-09-24) — **T003 zamrożony**, nieuruchomiony. Poprzedni protokół T001 `WITHDRAWN` (ADR-011) |
 | **Typ** | Confirmatory |
 | **Mechanizm** | **Under-reaction.** Informacja dyfunduje przez rynek stopniowo — część uczestników reaguje z opóźnieniem (ograniczenia mandatowe, rebalansowanie okresowe, kotwiczenie na cenach odniesienia). Cena dochodzi do nowej wartości w serii kroków, więc zwrot z przeszłości niesie informację o zwrocie przyszłym |
 | **Predykcja** | Znormalizowany zwrot z ostatnich k barów ma **dodatnią** relację ze znormalizowanym zwrotem przez kolejne h barów |
 | **Target** | A: zwrot w przód przez h, znormalizowany `atr_d1_14`. B: net R z symulacji tickowej (ADR-003) |
 | **Universe** | EURUSD, GBPUSD, USDJPY, AUDUSD, USDCAD, EURJPY |
-| **Timeframe** | Sygnał H1; h ∈ {3 dni, 10 dni} |
+| **Timeframe** | Sygnał H1; **h = 3 dni**. h = 10 d usunięty przez ADR-015 — zdominowany na koszcie (M03) i na mocy (M02, M05) |
 | **Origin** | Prerejestracja projektu. Mechanizm testowany w `market-quant` **wyłącznie w koniunkcji z H02** i wyłącznie na 172 obserwacjach efektywnych |
 | **Parent** | — |
-| **Protokół** | **T003 (do prerejestracji)** — zastępuje wycofany T001. Warunki, które musi spełnić: ADR-011. Konstrukcja T001, zachowana w `EXPERIMENTS.md` jako zapis: siatka prerejestrowana: k ∈ {24, 120, 480} × h ∈ {3d, 10d} = 6 komórek, **wszystkie raportowane, bez wyboru najlepszej**. Kierunek = `sign(mom_k)`, bez progu. Pomiar na wszystkich barach z określoną cechą, bez warstwy portfelowej (ADR-002). Osie raportowania: para, rok, kierunek, kubełek `vol_pct_252`, sesja |
-| **Kryteria falsyfikacji** | `NOT_SUPPORTED`, gdy CI95 expectancy zawiera 0 we wszystkich sześciu komórkach. `FALSIFIED`, gdy CI95 leży w całości poniżej +0,02 R we wszystkich komórkach. `SUPPORTED`, gdy CI95 > 0 w ≥1 komórce **i** kontrola losowa pobita przy p < 0,05 |
+| **Protokół** | **T003, ZAMROŻONY** 2026-09-24 — `configs/t003_momentum.yaml`, `sha256 c832dcdc…`. Siatka: k ∈ {24, 120, 480} × h = 3 d = **3 komórki**, wszystkie raportowane, bez wyboru najlepszej. Falsyfikacja stoi na **warstwie A** (ADR-015): Spearman `mom_k` ↔ `fwd_atr`, pooled po parach. Warstwa B (net R, kierunek `sign(mom_k)` bez progu) raportowana jako wycena, nie jako test. Pomiar na wszystkich barach z określoną cechą, bez warstwy portfelowej (ADR-002). Osie: para, rok, kierunek, kubełek `vol_pct_252`, sesja |
+| **Kryteria falsyfikacji** | Na warstwie A, próg opłacalności 51,72% trafności = `ρ 0,05401` (M04). `SUPPORTED`: CI > 0 w ≥1 komórce po korekcie Holma **i** kontrola permutacyjna pobita p < 0,05. `FALSIFIED`: CI95 w całości wewnątrz ±0,05401 we **wszystkich** komórkach (intersection-union, bez korekty). `NOT_SUPPORTED`: każdy inny wynik — raport **musi** podać górne ograniczenie na efekt. Osiągalność zmierzona w M05, nie założona |
 | **Obecne dowody** | Brak własnych. Zewnętrznie: `market-quant` nie wykrył efektu w koniunkcji z H02 przy mocy pozwalającej wykryć wyłącznie przewagę ≥0,10 R. **To nie jest dowód przeciwko H01** — komponent nie był mierzony osobno |
-| **Powiązane triale** | T001 `WITHDRAWN` (nigdy nieuruchomiony, ADR-011) · T003 (do prerejestracji) |
-| **Następny krok** | **Prerejestracja T003** spełniająca cztery warunki ADR-011. M02 zmierzył, że T001 nie miał mocy osiągnąć własnych kryteriów: wykrywalna przewaga **0,0796 R** (h=3d, próg 0,08 R) i **0,1463 R** (h=10d), a `SUPPORTED` wymagałoby expectancy > +0,056 / +0,102 R przy dryfie kosztowym −0,031 R. Niezależnie od T003: M03, M04, warstwa etykiet, dwa testy na look-ahead. Szczegóły: `reports/m02_power_audit.md` |
+| **Powiązane triale** | T001 `WITHDRAWN` (nigdy nieuruchomiony, ADR-011) · **T003 `PREREGISTERED`**, nieuruchomiony |
+| **Następny krok** | **Dwa warunki startu T003**, oba implementacyjne: (1) warstwa etykiet zbudowana od nowa, bez treści hipotezy w module — blokuje obie warstwy; (2) swap wpięty w `CostModel` + powtórzona kalibracja M03 (M06) — blokuje **wyłącznie warstwę B**, bo warstwa A nie zna kosztów (ADR-003). Moc zmierzona: n_eff **1 902–5 150**, próg wykrywalności **51,24–52,36%** trafności przy progu opłacalności 51,72%. Szczegóły: `reports/m05_layer_a_null.md` |
 
 **Uwaga do siatki.** Mechanizm under-reaction nie wskazuje jednej skali
 czasowej, więc pojedyncze k byłoby arbitralne. Trzy wartości są prerejestrowane
 i raportowane w całości. Wybór najlepszej po fakcie byłby nowym eksperymentem,
 nie wynikiem H01.
+
+**Uwaga do mocy.** Trzy komórki mają **różną** moc: n_eff spada z 5 150
+(k = 24) do 1 902 (k = 480), bo dłuższe okno cechy to silniejsza
+autokorelacja. Martwa strefa rośnie odpowiednio z −0,28 pp do +0,64 pp.
+Komórka k = 480 jest najsłabsza i to ona wyznacza, co T003 potrafi wykluczyć.
 
 ---
 
@@ -91,7 +96,7 @@ nie wynikiem H01.
 | Pole | Treść |
 |---|---|
 | **ID** | H03 |
-| **Status** | `PROPOSED` **jako zmienna warunkująca**, nie jako sygnał — była prerejestrowana **wewnątrz** protokołu T001, więc wycofanie T001 (ADR-011) zabrało jej protokół razem z nim. Musi wrócić jako oś raportowania w prerejestracji T003 |
+| **Status** | `PREREGISTERED` (2026-09-24) **jako zmienna warunkująca**, nie jako sygnał — wróciła jako oś raportowania w zamrożonej prerejestracji T003 (`reporting.axes`), po tym jak wycofanie T001 (ADR-011) zabrało jej protokół razem z nim |
 | **Typ** | Conditioning |
 | **Mechanizm** | Skuteczność efektów kierunkowych zależy od reżimu zmienności: w reżimach spokojnych trendy utrzymują się dłużej, w reżimach wysokiej zmienności dominuje szum i skoki, a koszty rosną |
 | **Predykcja** | Expectancy H01 (i H07) różni się istotnie między kubełkami `vol_pct_252` |
@@ -99,7 +104,7 @@ nie wynikiem H01.
 | **Dlaczego nie jest osobną hipotezą** | Gdyby wprowadzić ją dopiero po negatywnym wyniku H01, byłaby ratunkiem post-hoc („momentum działa, tylko przy innej zmienności"). Dlatego jest prerejestrowana **wewnątrz** protokołu H01 i raportowana dla **wszystkich** kubełków, nie tylko dla korzystnego |
 | **Kryteria falsyfikacji** | `NOT_SUPPORTED`, gdy rozrzut expectancy między kubełkami mieści się w CI pomiaru |
 | **Origin** | Prerejestracja projektu; rola doprecyzowana w ADR-006 |
-| **Powiązane triale** | T001 `WITHDRAWN` (była jego osią raportowania) · T003 (do prerejestracji) |
+| **Powiązane triale** | T001 `WITHDRAWN` (była jego osią raportowania) · **T003 `PREREGISTERED`** (oś `vol_regime`) |
 
 ---
 
@@ -181,3 +186,5 @@ nie wynikiem H01.
 | 2026-09-23 | H07 | — → `EXPLORATORY`/`POST-HOC` | Audyt `market-quant`, ADR-006 |
 | 2026-09-23 | H01 | `PREREGISTERED` → `PROPOSED` | **ADR-011** — prerejestracja T001 wycofana przed uruchomieniem po M02. Hipoteza nietknięta, protokół wycofany |
 | 2026-09-23 | H03 | `PREREGISTERED` → `PROPOSED` | **ADR-011** — była prerejestrowana wewnątrz protokołu T001, zniknęła razem z nim |
+| 2026-09-24 | H01 | `PROPOSED` → `PREREGISTERED` | **T003 zamrożony** (`configs/t003_momentum.yaml`, `sha256 c832dcdc…`). Sześć warunków ADR-011 spełnione: ADR-014 (P_eff, geometria), ADR-015 (falsyfikacja na warstwie A, siatka 3 komórki), M05 (n_eff zmierzone, `FALSIFIED` osiągalne) |
+| 2026-09-24 | H03 | `PROPOSED` → `PREREGISTERED` | Wróciła jako oś raportowania `vol_regime` w zamrożonej prerejestracji T003. Nadal warunkowanie, nie sygnał |

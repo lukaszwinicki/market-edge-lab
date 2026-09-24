@@ -19,9 +19,10 @@ projekcie: **0**.
 | M02 | — | `CLOSED` | **NIEROZSTRZYGNIĘTE** — h=10d bramkę przekracza, h=3d siada na progu (0,0796 vs 0,08) | ADR-011: T001 wycofany |
 | M03 | — | `CLOSED` | **PRZECHODZI** — expectancy losowych wejść = −koszt w granicach 1 SE; symulator nie zna swapu | KEEP |
 | M04 | — | `CLOSED` | **PRZECHODZI** — wzmocnienie poprawne; próg wykrywalności to 57,3% / 61,9% trafności kierunku | KEEP |
+| M05 | — | `CLOSED` | **PRZECHODZI** — n_eff warstwy A zmierzone (1 902–5 150); `FALSIFIED` osiągalne we wszystkich komórkach | ADR-015 domknięty |
 | T001 | H01 | `WITHDRAWN` | **nieuruchomiony** — konstrukcja bez mocy na osiągnięcie własnych kryteriów (M02) | ADR-011 |
 | T002 | H02, H07 | `PLANNED` | — | — |
-| T003 | H01 | `PLANNED` | — | zastępuje T001, 6 warunków: ADR-011 + ADR-012 |
+| T003 | H01 | **`PREREGISTERED`** | — **nieuruchomiony** | sześć warunków spełnione; zostają dwa warunki startu |
 
 ---
 
@@ -319,6 +320,70 @@ i audyt wyrównania znaczników czasu przed jakimkolwiek eksperymentem.
 
 ---
 
+## M05 — Rozkład zerowy metryki warstwy A · `CLOSED` · **PRZECHODZI**
+
+**Cel.** Zmierzyć, ile obserwacji naprawdę niezależnych ma statystyka relacji
+`cecha ↔ fwd_atr` na siatce T003, i czy kryterium `FALSIFIED` jest osiągalne.
+
+**Dlaczego osobny pomiar.** ADR-014 ustalił `P_eff = 2,00` dla warstwy B.
+Dla statystyki relacji zależność międzyparowa jest **inną wielkością**: pod H0
+kowariancja estymatorów idzie jak iloczyn `ρ^cecha · ρ^zwrot`, nie jak `|ρ|`.
+Przepisanie liczby z warstwy B na A byłoby odziedziczeniem zamiast pomiaru —
+tym samym błędem, który M02 wykrył przy σ.
+
+### Wynik (2026-09-24) · `20260924T134703Z-cd0d96` · raport: `reports/m05_layer_a_null.md`
+
+`mom_k` **nie został policzony**. Cecha syntetyczna: różnica skumulowanych
+przyrostów losowych na oknie `k` — ta sama autokorelacja co `mom_k` pod H0,
+zbudowana z generatora. Prawdziwe ceny wchodzą wyłącznie przez `fwd_atr`.
+
+Siatka T003 (h = 3 d, Spearman, gorszy z modeli bramkowych), **bez korekty
+na wielokrotność** — po korekcie Holma progi to 51,44 / 52,15 / 52,36%:
+
+| k | n_eff | Próg wykrywalności | Martwa strefa | `FALSIFIED` |
+|---|---|---|---|---|
+| 24 | 5 150 | 51,24% | **−0,48 pp** | osiągalne (0,51) |
+| 120 | 2 302 | 51,86% | +0,14 pp | osiągalne (0,76) |
+| 480 | 1 902 | 52,05% | +0,33 pp | osiągalne (0,83) |
+
+**Martwa strefa spada z 5,61 pp (warstwa B) do 0,33 pp** w najgorszej komórce.
+Przy k = 24 jest ujemna — eksperyment wykrywa efekty mniejsze od najmniejszego
+opłacalnego.
+
+### Cztery ustalenia
+
+1. **`P_eff` warstwy A wynosi 3,21**, nie 2,00 (`FACT`). Przewidywanie
+   analityczne z macierzy M02 dawało 3,08. Zmierzone wiąże.
+2. **`sign_aligned` jest krańcem OPTYMISTYCZNYM, nie pesymistycznym**
+   (`FACT`). Model „znak cechy idealnie śledzi czynnik USD" daje `P_eff ≈ 7,0`,
+   czyli więcej niż sześć par niezależnych. Kowariancja idzie jak **iloczyn**
+   `ρ^cecha · ρ^zwrot`; odwrócenie znaków samej cechy czyni część iloczynów
+   ujemnymi, a te **kasują** wariancję. `INFERENCE`: intuicja „zrównanie
+   znaków jest zawsze konserwatywne" jest fałszywa dla warstwy A — i gdyby
+   `P_eff = 2,00` przepisać „dla ostrożności", byłoby to założenie
+   niekonserwatywne, wyglądające na ostrożne.
+3. **h = 10 d odpada także na warstwie A** (`FACT`). Dwie z trzech komórek nie
+   mogą zapaść na `FALSIFIED` przy żadnym wyniku (n_eff 1 352 i 700). Decyzja
+   ADR-015 była `INFERENCE`; teraz jest pomiarem.
+4. **Nakładające się bary dokładają informację** (`FACT`). Zachłanne n_eff
+   z M02 (3 126) jest dolnym ograniczeniem: przy parach niezależnych statystyka
+   na wszystkich 130 553 wierszach daje 3 556. Zysk skromny i rosnący przy
+   krótszym `k`. Nie zmienia to niczego w M02 — tam mierzono inną wielkość.
+
+**Wątpliwość zamknięta pomiarem.** Cecha jest zwrotem z okna `k`, a nie `h`;
+gdyby korelacja międzyparowa rosła z długością okna, model bramkowy byłby za
+łagodny. Zmierzona średnia `|ρ|` na oknach 24 / 120 / 480 barów: **0,389 /
+0,404 / 0,398** — płasko, więc `as_returns_k` ≈ `as_returns_h`.
+
+### Czego M05 nie zrobił
+
+Nie policzył `mom_k` w żadnym wariancie. Nie mierzył mocy pod hipotezą
+alternatywną. Nie rozstrzygał wyboru między Spearmanem a Pearsonem — ten
+zapadł przed przebiegiem, z kurtozy. Nie dotknął OOS ani segmentu
+zapieczętowanego. Testy: **281** (264 + 17, `tests/test_surrogate.py`).
+
+---
+
 ## T001 — H01 Momentum, pomiar na wszystkich barach · `WITHDRAWN`
 
 **Status:** `WITHDRAWN` (2026-09-23, **ADR-011**) · **nigdy nieuruchomiony**
@@ -401,38 +466,73 @@ w prerejestracji **przed** uruchomieniem, nie po zobaczeniu rozrzutu.
 
 ---
 
-## T003 — H01 Momentum, konstrukcja przeprojektowana po M02
+## T003 — H01 Momentum, konstrukcja przeprojektowana · `PREREGISTERED`
 
-**Status:** `PLANNED` — **nieprerejestrowany**. Zastępuje T001 (ADR-011).
+**Status:** `PREREGISTERED` (2026-09-24) · **nieuruchomiony** · N bez zmian
+**Prerejestracja:** `configs/t003_momentum.yaml`
+`sha256 = c832dcdcbbc3f3e467bc18b9c4993c1f07bcb7a3b7a2b7d13aac481959db99b2`
+`frozen_sha256 = 012cd9ccfba411fd58e3d41c7d6de8f0153a0b64714e0aa24d8a5a57f68696c3`
 
 **Cel.** To samo pytanie co T001: czy `mom_k` niesie informację o zwrocie
 w przód, mierzone na wszystkich barach, bez warstwy portfelowej (ADR-002).
-Zmienia się wyłącznie konstrukcja pomiaru — mechanizm i hipoteza zostają.
+Mechanizm i hipoteza bez zmian; zmienia się **warstwa, na której stoi
+falsyfikacja**, i rozmiar siatki.
 
-**Czego nie wolno odziedziczyć po T001.** Prerejestracja T003 musi spełnić
-sześć warunków, zanim cokolwiek zostanie uruchomione — cztery z ADR-011,
-dwa dołożone po M03 (ADR-012 i pomiar kosztu):
+### Sześć warunków ADR-011 — stan
 
-| # | Warunek | Dlaczego |
+| # | Warunek | Stan | Gdzie rozstrzygnięty |
+|---|---|---|---|
+| 1 | Model niezależności par i `P_eff` | **spełniony** | ADR-014 (warstwa B: 2,00) + M05 (warstwa A: **3,21 zmierzone**) |
+| 2 | σ zmierzona dla zadeklarowanej geometrii | **spełniony** | ADR-014 — geometria bez zmian, σ = 0,9165 z M02 dotyczy dokładnie jej |
+| 3 | Progi falsyfikacji osiągalne, martwa strefa wypisana | **spełniony** | ADR-015 + M05 — `FALSIFIED` osiągalne we wszystkich 3 komórkach |
+| 4 | Granica okien wychodzących poza segment | **spełniony** | prerejestracja, `windows_crossing_segment_end: drop` |
+| 5 | Ramię „cecha vs cecha postarzona", kryterium przed uruchomieniem | **spełniony** | prerejestracja, `control_aged_feature` |
+| 6 | Model kosztu ze swapem | **zadeklarowany, niewpięty** | prerejestracja — wiąże **wyłącznie warstwę B** |
+
+### Co się zmieniło wobec T001
+
+| | T001 (`WITHDRAWN`) | T003 |
 |---|---|---|
-| 1 | Jawna deklaracja modelu niezależności par i liczby P_eff | M02: wybór w nawiasie [2,0; 6,0] jest wart czynnika 1,7 na MDE |
-| 2 | Moc wyliczona z σ **zmierzonej** dla zadeklarowanej geometrii barier | σ zależy od geometrii; dziedziczona była 2× za mała |
-| 3 | Wykazanie, że progi falsyfikacji są osiągalne — martwa strefa wypisana | Inaczej `NOT_SUPPORTED` zapada niezależnie od tego, czy efekt istnieje |
-| 4 | Rozstrzygnięcie granicy okien wychodzących poza segment | T001 tego nie mówił; po wyniku byłby to parametr swobodny |
-| 5 | **Ramię kontrolne: cecha vs cecha postarzona o jeden bar**, z kryterium ustalonym przed uruchomieniem | ADR-012 — dawne M04; osobny przebieg spaliłby próbę za diagnostykę przebiegu głównego |
-| 6 | **Model kosztu z członem swapu**, albo jawne uzasadnienie pominięcia | M03: przy h=10d brakująca marża to 1,32× cały modelowany koszt |
+| Instrument falsyfikacji | expectancy w net R (**warstwa B**) | Spearman `mom_k` ↔ `fwd_atr` (**warstwa A**) |
+| Siatka | 3 × 2 = 6 komórek | 3 × 1 = **3 komórki**, h = 3 d |
+| Próg wykrywalności | 57,33% trafności | **51,24–52,36%** |
+| Martwa strefa | 5,61 pp | **−0,28 do +0,64 pp** |
+| `FALSIFIED` | nieosiągalne | **osiągalne w każdej komórce** |
+| `n_eff` | 1 040, wyliczone | **1 902–5 150, zmierzone** (M05) |
+| Licznik | N: 7 → 13 | N: 7 → **10** |
 
-**Kierunki przeprojektowania — do rozważenia, nic nie przesądzone.**
-Rezygnacja z h = 10 d: nie przechodzi bramki przy żadnym modelu par, a po
-M03 traci też jedyną przewagę, jaką miał — po doliczeniu swapu kosztuje na
-transakcję tyle samo co h = 3 d (0,0392 wobec 0,0422 R), dając 3× mniej
-obserwacji niezależnych.
-Zmiana geometrii barier — przy obecnej TP pada w 5,5% przypadków, a 63%
-pozycji umiera na barierze czasowej, co jest rozrzutem wydanym bez
-informacji. Urealnienie progu +0,02 R w kryterium `FALSIFIED`. Każdy
-z tych wariantów zmienia σ i wymaga **nowego pomiaru mocy**, nie
-przeliczenia istniejącego.
+Przesunięcie na warstwę A **nie jest złagodzeniem kryteriów** — ADR-015.
+Przy warstwie B `NOT_SUPPORTED` zapadało niezależnie od tego, czy efekt
+istnieje. Przy warstwie A wynik negatywny zaczyna wykluczać większość pasma,
+w którym przewaga momentum mogłaby realnie leżeć. Cena wyniku negatywnego
+rośnie, nie spada.
 
-**Warunek startu.** ~~M03~~ (PRZECHODZI), ~~testy na look-ahead~~ (spłacone
-w M03), M04 w nowej postaci (ADR-012), warstwa etykiet, prerejestracja
-spełniająca sześć warunków powyżej.
+### Kryteria falsyfikacji — zamrożone
+
+Próg opłacalności (M04): **51,72% trafności**, czyli `ρ = 0,05401`.
+
+| Wynik | Reguła | Wielokrotność |
+|---|---|---|
+| `SUPPORTED` | CI > 0 w ≥1 komórce **i** kontrola permutacyjna pobita p < 0,05 | Holm na 3 komórki — union wymaga korekty |
+| `FALSIFIED` | CI95 w całości wewnątrz ±0,05401 we **wszystkich** komórkach | bez korekty — intersection-union kontroluje błąd I rodzaju bez niej |
+| `NOT_SUPPORTED` | każdy inny wynik | raport **musi** podać górne ograniczenie na efekt |
+
+### Warunki startu — dwa niespełnione
+
+| Co | Blokuje |
+|---|---|
+| **Warstwa etykiet** zbudowana od nowa, bez treści hipotezy w module | warstwę A i B |
+| **Swap wpięty w `CostModel`** + powtórzona kalibracja M03 (M06) | **wyłącznie warstwę B** — warstwa A nie zna kosztów |
+
+Warunek 6 nie blokuje kryteriów falsyfikacji, bo te stoją na warstwie A,
+a ta jest pomiarem informacji, nie ekonomii (ADR-003). Blokuje natomiast
+**każdą liczbę raportowaną z warstwy B**.
+
+---
+
+## Zmiana prerejestracji po zamrożeniu
+
+Nie ma takiej procedury. Zmiana czegokolwiek w `configs/t003_momentum.yaml`
+po tym wpisie to **nowy eksperyment z nowym ID**, a nie poprawka T003 —
+niezależnie od tego, jak drobna. Hash wyżej jest po to, żeby dało się to
+sprawdzić, a nie żeby w to wierzyć.

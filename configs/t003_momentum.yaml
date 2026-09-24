@@ -1,0 +1,301 @@
+# t003_momentum.yaml — PREREJESTRACJA T003 (H01, momentum)
+#
+# Dziedziczy `base.yaml`. Wszystko, co tutaj stoi, jest ZADEKLAROWANE PRZED
+# uruchomieniem. Zmiana czegokolwiek po zobaczeniu wyniku to NOWY eksperyment
+# z nowym ID, nie poprawka tego.
+#
+# Podstawa: ADR-011 (sześć warunków) · ADR-012 (zakaz dotykania cechy przed
+# zamrożeniem) · ADR-014 (P_eff warstwy B, geometria barier) · ADR-015
+# (kryteria na warstwie A, siatka 3 komórki) · M02, M03, M04, M05.
+#
+# Hash tego pliku jest zapisany w EXPERIMENTS.md i wchodzi do każdego wpisu
+# w `trials.jsonl` przez `config_sha256`.
+
+meta:
+  trial_id: "T003"
+  hypothesis: "H01"
+  type: "confirmatory"
+  replaces: "T001"            # WITHDRAWN, ADR-011, nigdy nieuruchomiony
+  inherits: "configs/base.yaml"
+  frozen: true
+
+  # Licznik: 3 komórki siatki = 3 warianty. ADR-015.
+  n_variants: 3
+  counter_before: 7
+  counter_after: 10
+
+# ---------------------------------------------------------------------------
+# Pytanie i mechanizm
+# ---------------------------------------------------------------------------
+hypothesis:
+  mechanism: >
+    Under-reaction. Informacja dyfunduje przez rynek stopniowo, więc zwrot
+    z przeszłości niesie informację o zwrocie przyszłym.
+  prediction: >
+    Znormalizowany zwrot z ostatnich k barów ma DODATNIĄ relację ze
+    znormalizowanym zwrotem przez kolejne h barów.
+  # Pomiar informacji, bez warstwy portfelowej i bez warstwy ryzyka (ADR-002).
+  measured_on: "wszystkie bary z określoną cechą"
+
+# ---------------------------------------------------------------------------
+# Próba
+# ---------------------------------------------------------------------------
+sample:
+  frozen: true
+  universe: [EURUSD, GBPUSD, USDJPY, AUDUSD, USDCAD, EURJPY]
+  warmup_from: "2015-01-01"
+  first_decision: "2016-01-01"
+  last_decision_segment_end: "2021-12-31"
+
+  session:
+    primary: {start: "08:00", end: "22:00", tz: "UTC"}
+    secondary: "wszystkie godziny"
+    note: >
+      Oba raportowane. M02: druga sesja dokłada +72% wierszy i ZERO obserwacji
+      niezależnych, więc jest pytaniem o realizm wykonania, nie o moc.
+      Metryka główna liczona na primary; secondary wyłącznie raportowana.
+
+  # WARUNEK 4 (ADR-011) — rozstrzygnięty jawnie, przed uruchomieniem.
+  windows_crossing_segment_end:
+    policy: "drop"
+    rationale: >
+      Decyzja z 28.12.2021 przy h=3d rozstrzyga się jeszcze w segmencie
+      RESEARCH, ale przy dłuższych oknach wychodziłaby w OOS. Wariant
+      nietykający OOS jest tym, którego użył M02: −98 decyzji na parę,
+      0,45% próby, bez wpływu na n_eff. Po zobaczeniu wyniku byłby to
+      parametr swobodny, więc zapada tutaj.
+
+# ---------------------------------------------------------------------------
+# Cecha i siatka
+# ---------------------------------------------------------------------------
+feature:
+  frozen: true
+  formula: "mom_k = (close - close[-k]) / (atr_h1_14 * sqrt(k))"
+  normalizer: "atr_h1_14"          # WYŁĄCZNIE normalizacja cech (base.yaml)
+  lookbacks_k_bars: [24, 120, 480]
+  reference_price: "bid_close ostatniego bara ZAMKNIĘTEGO przed decyzją"
+  note: >
+    Mechanizm under-reaction nie wskazuje jednej skali czasowej, więc
+    pojedyncze k byłoby arbitralne. Trzy wartości raportowane w całości.
+    Wybór najlepszej po fakcie byłby nowym eksperymentem.
+
+grid:
+  frozen: true
+  horizons_business_days: [3]      # h=10d USUNIĘTY — ADR-015
+  cells: 3                         # k in {24,120,480} x h=3d
+  h10_removal_rationale: >
+    M03: po doliczeniu swapu h=10d kosztuje na transakcję tyle samo co h=3d
+    (0,0392 wobec 0,0422 R) przy 3x mniejszym n_eff. M05: na warstwie A dwie
+    z trzech komórek h=10d nie mogą zapaść na FALSIFIED przy ŻADNYM wyniku
+    (n_eff 1352 i 700). Trzy próby za gwarantowane NOT_SUPPORTED.
+
+# ---------------------------------------------------------------------------
+# WARSTWA A — pomiar informacji. TUTAJ stoją kryteria falsyfikacji (ADR-015)
+# ---------------------------------------------------------------------------
+layer_a:
+  frozen: true
+  role: "wykrywanie — metryka główna i jedyny instrument falsyfikacji"
+
+  target: "fwd_atr = (cena wyjścia - cena odniesienia) / atr_d1_14"
+  barrier_scaler: "atr_d1_14"      # rozłączne z normalizatorem cech
+
+  primary_statistic: "spearman(mom_k, fwd_atr), pooled po parach, per komórka"
+  secondary_statistic: "pearson(mom_k, fwd_atr)"
+  statistic_choice_rationale: >
+    Spearman wybrany PRZED M05, z kurtozy fwd_atr (4,6 przy h=3d). Pearson na
+    takim ogonie ma rozrzut zależny od kilkunastu obserwacji. Wybieranie
+    statystyki po obejrzeniu, która ma ciaśniejszy rozkład zerowy, byłoby
+    doborem przyrządu pod wynik.
+
+  costs: "BRAK — warstwa A jest pomiarem informacji, nie ekonomii (ADR-003)"
+
+  ci:
+    method: "block_bootstrap_by_day"   # base.yaml: bloki 20-dniowe, 10 000 rep.
+    level: 0.95
+
+    # Sprawdzenie krzyżowe zadeklarowane PRZED uruchomieniem.
+    consistency_check_vs_m05:
+      rule: >
+        SE z block bootstrapu musi zgadzać się z SE zmierzonym surogatem
+        w M05 w granicach 25% w KAŻDEJ komórce.
+      on_failure: "STOP — rozbieżność oznacza, że jedno z dwóch źle mierzy"
+      m05_run: "20260924T134703Z-cd0d96"
+      m05_se_spearman: {"24": 0.01393, "120": 0.02084, "480": 0.02293}
+
+  # WARUNEK 1 + 2 (ADR-011) — n_eff ZMIERZONE, nie odziedziczone.
+  power:
+    source: "M05, model bramkowy = gorszy z as_returns_h / as_returns_k"
+    n_eff_measured: {"24": 5150, "120": 2302, "480": 1902}
+    p_eff_pairs_layer_a: 3.21
+    p_eff_note: >
+      NIE jest to P_eff = 2,00 z ADR-014. Tamto dotyczy warstwy B, gdzie
+      statystyka jest liniowa w znaku cechy. Dla statystyki relacji
+      kowariancja estymatorów idzie jak iloczyn rho_cecha * rho_zwrot.
+      Zmierzone w M05, nie przeniesione.
+
+# ---------------------------------------------------------------------------
+# KRYTERIA FALSYFIKACJI — ustalone przed uruchomieniem (WARUNEK 3)
+# ---------------------------------------------------------------------------
+falsification:
+  frozen: true
+  layer: "A"
+
+  breakeven:
+    accuracy_pct: 51.72            # M04, krzywa czułości E(p)=0 przy h=3d
+    rho_equivalent: 0.05401        # 0,5 + arcsin(rho)/pi = 0,5172
+
+  supported:
+    rule: >
+      CI > 0 w co najmniej JEDNEJ komórce, po korekcie Holma na 3 komórki,
+      ORAZ kontrola permutacyjna pobita przy p < 0,05.
+    multiplicity: "Holm, 3 komórki — union wymaga korekty"
+    detectability_pct: {"24": 51.44, "120": 52.15, "480": 52.36}
+    dead_zone_pp: {"24": -0.28, "120": 0.43, "480": 0.64}
+
+  falsified:
+    rule: >
+      CI95 leży w całości wewnątrz +/- 0,05401 we WSZYSTKICH trzech komórkach.
+    multiplicity: "brak korekty — intersection-union kontroluje blad I rodzaju
+                   na poziomie alpha bez niej; wymaganie dotyczy KAZDEJ komorki"
+    reachable: true                # M05: iloraz polowa_CI/rho_be = 0,51 / 0,76 / 0,83
+    half_ci_over_rho_be: {"24": 0.506, "120": 0.756, "480": 0.832}
+    meaning: >
+      Relacja jest na tyle bliska zeru, że wyklucza przewagę o jakiejkolwiek
+      wartosci ekonomicznej. To jest falsyfikacja, nie brak rozstrzygniecia.
+
+  not_supported:
+    rule: "kazdy inny wynik"
+    reporting_duty: >
+      Raport MUSI podac gorne ograniczenie na efekt (gorny koniec CI)
+      w jednostce trafnosci kierunku. NOT_SUPPORTED bez ograniczenia nie
+      jest wynikiem.
+
+  # Zapisane wprost, zeby nie dalo sie tego przemilczec po fakcie.
+  dead_zone_written_out: >
+    Przy k=24 martwa strefa jest UJEMNA (-0,28 pp): eksperyment wykrywa
+    efekty mniejsze od najmniejszego oplacalnego. Przy k=480 wynosi +0,64 pp,
+    czyli efekt o trafnosci miedzy 51,72% a 52,36% bedzie realnie oplacalny,
+    a pomiar zwroci NOT_SUPPORTED. To jest cena konstrukcji i jest znana
+    przed uruchomieniem.
+
+# ---------------------------------------------------------------------------
+# WARUNEK 5 (ADR-012) — ramie kontrolne: cecha vs cecha postarzona
+# ---------------------------------------------------------------------------
+control_aged_feature:
+  frozen: true
+  arm: "mom_k policzone na barze o jeden WCZESNIEJSZYM niz dopuszcza siatka"
+  runs_with: "przebieg glowny — osobny przebieg spalilby probe za diagnostyke"
+
+  criterion_set_before_run: >
+    Statystyka na cesze postarzonej NIE MOZE byc wyzsza od statystyki na
+    cesze prawdziwej. Formalnie: rho_aged - rho_true < 2 * SE(roznicy),
+    gdzie SE liczone block bootstrapem na PARACH (ta sama replikacja).
+  on_failure: >
+    STOP. Audyt wyrownania znacznikow czasu przed jakimkolwiek raportowaniem
+    wyniku glownego. Wzrost po podaniu cech z przeszlosci jest kanonicznym
+    objawem bledu off-by-one.
+  context: >
+    W market-quant ta kontrola dala wynik LEPSZY (-0,0268 vs -0,0560 R)
+    i nigdy nie zostala rozstrzygnieta. Tu ma kryterium przed uruchomieniem.
+
+# ---------------------------------------------------------------------------
+# Kontrola permutacyjna — benchmark nr 1
+# ---------------------------------------------------------------------------
+random_control:
+  frozen: true
+  method: "permutacja cechy wzgledem targetu, w obrebie pary"
+  preserves: ["instrument", "okres", "godziny", "rozklad cechy",
+              "rozklad targetu", "nakladanie okien", "liczba obserwacji"]
+  varies: ["przyporzadkowanie cechy do momentu"]
+  reps: 1000
+  seed: 20260924
+  note: >
+    Odpowiednik losowego timingu z base.yaml, przeniesiony na warstwe A:
+    zachowuje wszystko poza zwiazkiem cechy z targetem. M05 zmierzyl ten sam
+    rozklad surogatem o zadanej autokorelacji; oba maja sie zgadzac.
+
+# ---------------------------------------------------------------------------
+# WARSTWA B — wycena ekonomiczna. NIE jest instrumentem falsyfikacji (ADR-015)
+# ---------------------------------------------------------------------------
+layer_b:
+  frozen: true
+  role: "wycena — raportowana zawsze, nie rozstrzyga o statusie H01"
+  run_when: >
+    Pelny przebieg B tylko w komorkach, w ktorych A pokazala sygnal (ADR-003).
+    Jesli A jest zerowa przy zmierzonej mocy, B nie moze byc dodatnia.
+
+  direction: "sign(mom_k), bez progu — prog jest parametrem swobodnym"
+
+  # WARUNEK 2 (ADR-011) — geometria zadeklarowana, sigma dla NIEJ zmierzona.
+  barriers:
+    sl_x_atr_d1_14: 1.1
+    tp_x_atr_d1_14: 2.2
+    sigma_r_measured: 0.9165       # M02, dla DOKLADNIE tej geometrii
+    sigma_source_run: "20260923T172201Z-fa3731"
+    unchanged_rationale: >
+      ADR-014. Usuniecie barier w calosci zmienia prog trafnosci o +0,07 pp,
+      bo sigma i wzmocnienie skaluja sie razem (sigma/G = 0,642 -> 0,650).
+      Zmiana unieważniłaby sigma z M02 i kalibracje M03/M04 za zysk ponizej
+      bledu pomiaru.
+
+  # WARUNEK 6 (ADR-011) — model kosztu ze swapem.
+  costs:
+    spread: "tickowy bid/ask w momencie fillu"
+    floor_pips: {fx_majors: 1.5, fx_crosses: 2.5}
+    slippage_entry_x_spread: 0.5
+    slippage_stop_x_spread: 1.0
+    swap:
+      included: true
+      margin_axis: [0.005, 0.01, 0.02]
+      triple_on_wednesday: true
+      blocking: true
+      note: >
+        M03: CostModel NIE zna swapu. Przy h=3d brakujacy czlon to 0,0124 R
+        przy marzy 1%, czyli 0,42x caly koszt modelowany. Wpiecie wymaga
+        POWTORZENIA kalibracji M03 (przebieg M06, kind=control).
+        Warunek NIE JEST WIAZACY dla kryteriow falsyfikacji, bo warstwa A
+        nie zna kosztow; jest wiazacy dla kazdej liczby raportowanej z B.
+    report_multipliers: [1, 2, 3]
+
+  metric: "expectancy w R netto, per komorka, z CI95"
+
+# ---------------------------------------------------------------------------
+# Raportowanie
+# ---------------------------------------------------------------------------
+reporting:
+  frozen: true
+  axes: [instrument, year, direction, vol_regime, session]
+  all_cells_reported: true
+  realized_pair_dependence: >
+    Przebieg raportuje ZREALIZOWANE E[sign_i*sign_j*rho_ij] i wynikajace
+    z niego P_eff jako diagnostyke. NIE MOZE zmienic werdyktu — informuje
+    nastepny eksperyment, nie ten (ADR-014).
+  layer_a_minus_b: >
+    Roznica miedzy warstwa A a B jest raportowana jako pomiar tego, CO
+    KOSZTUJA bariery i koszty (ADR-014).
+
+artifacts:
+  dir: "runs/<run_id>/"
+  files: [t003.md, metrics.json, observations.parquet, base.yaml,
+          t003_momentum.yaml, diff.patch]
+  updates: [HYPOTHESES.md, EXPERIMENTS.md, PROGRESS.md, trials/trials.jsonl]
+
+# ---------------------------------------------------------------------------
+# Warunki startu — NIE spelnione w momencie zamrozenia
+# ---------------------------------------------------------------------------
+start_conditions:
+  frozen: true
+  met:
+    - "M01 aparatura zweryfikowana"
+    - "M03 kontrola losowa — przyrzad ma sprawdzone zero"
+    - "M04 czulosc — przyrzad ma sprawdzone wzmocnienie"
+    - "M05 rozklad zerowy warstwy A — n_eff zmierzone, FALSIFIED osiagalne"
+    - "testy na look-ahead splacone w M03"
+    - "warunki 1-5 prerejestracji (ADR-011)"
+  pending:
+    - id: "labels_layer"
+      what: "warstwa etykiet zbudowana od nowa, bez tresci hipotezy w module"
+      blocks: "warstwe A i B"
+    - id: "swap_wired"
+      what: "swap wpiety w CostModel + powtorzona kalibracja M03 (M06)"
+      blocks: "wylacznie warstwe B — warunek 6"
