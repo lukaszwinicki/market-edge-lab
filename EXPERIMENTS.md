@@ -24,6 +24,7 @@ Uruchomionych prób strategii w tym projekcie: **3**.
 | T001 | H01 | `WITHDRAWN` | **nieuruchomiony** — konstrukcja bez mocy na osiągnięcie własnych kryteriów (M02) | ADR-011 |
 | M07 | — | `CLOSED` | **ROZSTRZYGA** — H02 redundantna z H01 (ρ = +0,832 z `mom_24`); zdarzenie H07 jest 44–54× rzadsze od stanu | H02 → `CLOSED`; T002 zwęża się do H07 |
 | M08 | — | `CLOSED` | **ROZSTRZYGA** — 726 zdarzeń H07 na siatce primary; górna granica n_eff 843 wobec 1 317 potrzebnych do `FALSIFIED` | ADR-021: T002 nie startuje |
+| M09 | — | `CLOSED` | **PRZECHODZI z zastrzeżeniem** — H04 carry: n_eff 1 870–2 344, `FALSIFIED` osiągalne; rozkład zerowy i bootstrap rozjeżdżają się 1,7× (ADR-019 otwarty) | ADR-023 |
 | T002 | H07 | `WITHDRAWN` | **nieuruchomiony, bez prerejestracji** — `FALSIFIED` nieosiągalne przy każdym modelu zależności (M08A) | ADR-021 |
 | T003 | H01 | `CLOSED` | **`NOT_SUPPORTED`** — relacja nieodróżnialna od zera we wszystkich 3 komórkach; górne ograniczenie **51,03%** trafności | H01 → `NOT_SUPPORTED`; ADR-019 |
 
@@ -519,6 +520,44 @@ granice leżą poniżej 1 317.
 ma przewagę. Mówi wyłącznie, że na RESEARCH w tej definicji nie da się tego
 rozstrzygnąć w stronę `FALSIFIED`. Nie zmierzył martwej strefy dokładnie
 (to byłby krok B) i nie badał innych `N` ani `quiet_bars`.
+
+---
+
+## M09 — Audyt mocy H04 (carry) · `CLOSED` · **PRZECHODZI z zastrzeżeniem**
+
+**Cel.** Bramka ADR-022 dla H04, zanim hipoteza dostanie plan trialu. Zero
+prób. Szczegóły i decyzje: **ADR-023**.
+
+| Przebieg | Rodzaj | Co |
+|---|---|---|
+| `20260924T202138Z-893fe8` | `infra` | 12 serii OECD z FRED, bieżący vintage, odciski sha256 w rejestrze |
+| `20260924T202221Z-7244a5` | `control`, **error** | M09A zatrzymany przez lukę `interbank_3m` USD 2020-04 — strażnik zadziałał |
+| `20260924T202237Z-ff858a` | `control` | **M09A** — geometria cechy; `interbank_3m` → `UNKNOWN` |
+| `20260924T202431Z-679260` | `control`, **nieważny** | M09B v1 — surogat nie odtwarzał geometrii (zmienność 0,37 wobec 0,65) |
+| `20260924T202826Z-a64090` | `control` | **M09B** — surogat skalibrowany, dwa SE |
+
+### Wynik
+
+M09A (`overnight`, 72 miesiące widoczne dla decyzji): zmienność w czasie
+**0,65 pp**, rozrzut między parami **0,81 pp**, φ miesięczne 0,94–0,98.
+Cykl Fed daje parom z USD rozpiętość 1,7–2,5 pp; EURJPY stoi (sd 0,11).
+
+M09B, h = 3 d, primary, 130 553 decyzje:
+
+| Model | SE null | SE boot | iloraz | n_eff | MDE | `FALSIFIED` |
+|---|---|---|---|---|---|---|
+| AR(1) | 0,01237 | 0,02066 | 0,60 | 2 344 | 51,84% | osiągalne (0,75) |
+| błądzenie losowe | 0,01327 | 0,02313 | 0,57 | **1 870** | 52,06% | osiągalne (0,84) |
+
+Bramka po większym SE i gorszym modelu: **przekroczona**. Ta sama geometria
+co `mom_480` w M05.
+
+### Czego M09 nie zrobił
+
+**Nie zestawił różnicy stóp z żadnym zwrotem.** M09A nie czytał cen, M09B
+nie czytał stóp. **Nie rozstrzygnął, które SE jest właściwe** — rozjazd
+1,7× przekracza limit ADR-019 i blokuje prerejestrację do czasu M10.
+Nie pobrał danych point-in-time.
 
 ---
 

@@ -121,7 +121,9 @@ Komórka k = 480 jest najsłabsza i to ona wyznacza, co T003 potrafi wykluczyć.
 | **Problem — horyzont** | Mechanizm działa na skali miesięcy, a operacyjna preferencja projektu to 2–3 dni. To napięcie trzeba rozstrzygnąć **w protokole, przed testem**, a nie tłumaczyć nim wynik po fakcie |
 | **Kryteria falsyfikacji** | Do ustalenia w prerejestracji trialu |
 | **Origin** | Prerejestracja projektu |
-| **Następny krok** | Po T003/T002 (T001 `WITHDRAWN`, ADR-011). Najpierw praca nad danymi point-in-time, potem prerejestracja |
+| **Dane — ROZSTRZYGNIĘTE (ADR-023)** | Różnica stóp `overnight` (OECD IRSTCI01), komplet dla sześciu walut. `interbank_3m` `UNKNOWN` (brak USD 2020-04). Bieżący vintage wyłącznie do geometrii; test wymaga ALFRED point-in-time |
+| **Moc — ZMIERZONA (M09)** | `FACT`. n_eff 1 870–2 344 przy h = 3 d, `FALSIFIED` osiągalne (iloraz 0,75–0,84). Zastrzeżenie: rozkład zerowy i bootstrap rozjeżdżają się 1,7× — ADR-019 otwarty |
+| **Następny krok** | M10 (pokrycie SE na danych syntetycznych) i dane point-in-time z ALFRED. Dopiero potem prerejestracja |
 
 ---
 
@@ -193,3 +195,4 @@ Komórka k = 480 jest najsłabsza i to ona wyznacza, co T003 potrafi wykluczyć.
 | 2026-09-24 | H02 | `PROPOSED` → `CLOSED` | **M07** (`20260924T154152Z-a734c5`, kontrola, N bez zmian): Spearman(`donch_pos_55`, `mom_24`) = +0,832, `P(mom>0 \| stan)` = 0,973. Warunek reaktywacji z tego rejestru niespełniony. Pomiar NIE dotknął zwrotów w przód (ADR-020) |
 | 2026-09-24 | H07 | bez zmiany statusu | **M07** potwierdził uzasadnienie nowości pomiarem: zdarzenie jest 44–54× rzadsze od stanu. H07 zostaje jedyną treścią T002 po zamknięciu H02 |
 | 2026-09-24 | H07 | bez zmiany statusu | **M08A** (`20260924T200939Z-67315c`, kontrola, N bez zmian): 726 zdarzeń, górna granica n_eff 843 wobec 1 317 potrzebnych do falsyfikacji. **T002 nie startuje (ADR-021)**. Pomiar NIE dotknął zwrotów w przód |
+| 2026-09-24 | H04 | bez zmiany statusu | **M09** (`20260924T202826Z-a64090`, kontrola, N bez zmian): bramka ADR-022 przekroczona, n_eff ≥ 1 870. Prerejestracja wstrzymana do rozstrzygnięcia rozjazdu SE (ADR-019, ADR-023). Pomiar NIE zestawił cechy ze zwrotem |

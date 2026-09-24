@@ -1333,3 +1333,78 @@ purge); reguła wiąże jak ADR-011.
   rodziny trendowej.
 * Pomiar geometrii cechy hipotezy nieprerejestrowanej musi spełniać warunki
   ADR-020.
+
+---
+
+## ADR-023 — H04: seria `overnight`, bieżący vintage tylko do geometrii; audyt mocy przechodzi, ale ADR-019 zostaje otwarty
+
+**Status:** ACCEPTED · 2026-09-24 · **Wykonuje:** ADR-022 · **Przebiegi:**
+`20260924T202138Z-893fe8` (infra), `20260924T202237Z-ff858a` (M09A),
+`20260924T202826Z-a64090` (M09B) · **N bez zmian (10)**
+
+**Decyzja.** Cztery rzeczy:
+
+1. **Cecha H04 = różnica stóp `overnight` (OECD IRSTCI01), `base − quote`.**
+   `interbank_3m` jest `UNKNOWN`: brak USD za 2020-04, w środku okna. Nie
+   interpolujemy.
+2. **Bieżący vintage FRED wolno użyć wyłącznie do geometrii cechy.** Każde
+   zestawienie cechy ze zwrotem wymaga danych point-in-time z ALFRED
+   (DATA.md §4). Test pilnuje, że warstwa etykiet i skrypt trialu nie
+   importują `src/data/rates.py`.
+3. **Bramka ADR-022 dla H04 jest przekroczona:** `FALSIFIED` osiągalne przy
+   gorszym modelu trwałości i większym z dwóch SE.
+4. **Prerejestracja H04 nie powstanie, dopóki nie zostanie rozstrzygnięte,
+   które SE jest właściwe** — rozkład zerowy i bootstrap rozjeżdżają się
+   o 1,7×, ponad limit 1,5 z ADR-019.
+
+**Dowód (`FACT`).**
+
+M09A: cecha rusza się bardziej, niż zakładała obawa z `PROGRESS.md` —
+EUR i JPY stoją przy zerze, ale cykl Fed 2016–2019 daje parom z USD
+rozpiętość 1,7–2,5 pp. Zmienność w czasie 0,65 pp, rozrzut między parami
+0,81 pp, φ miesięczne 0,94–0,98. EURJPY stoi praktycznie w miejscu
+(sd 0,11).
+
+M09B (surogat skalibrowany do obu wielkości M09A, zero przyrządu 0,908):
+
+| Model | SE null | SE bootstrap | iloraz | n_eff (po większym) | MDE | `FALSIFIED` |
+|---|---|---|---|---|---|---|
+| AR(1) | 0,01237 | 0,02066 | 0,60 | 2 344 | 51,84% | osiągalne (0,75) |
+| błądzenie losowe | 0,01327 | 0,02313 | 0,57 | **1 870** | 52,06% | osiągalne (0,84) |
+
+Najgorsza komórka H04 jest praktycznie tą samą geometrią co `mom_480`
+w M05 (1 902, 0,83).
+
+**Przebieg unieważniony.** `…202431Z-679260` dał n_eff = 7 593 — więcej niż
+`mom_24`, przy cesze miesięcznej. Surogat nie odtwarzał geometrii: AR(1)
+dopasowany do trendu zaniżył σ, więc zmienność w czasie wynosiła 0,37–0,39
+wobec 0,65 i relację identyfikował sam przekrój sześciu par. Nie było
+zadeklarowanego sprawdzenia ważności, więc nikt by tego nie wyłapał bez
+porównania z intuicją z M05. Wynik zostaje w rejestrze jako **nieważny**;
+wersja poprawiona deklaruje kalibrację i odmawia werdyktu, gdy ta nie trafia.
+**Kierunek błędu — znowu optymistyczny**, czwarty raz w projekcie.
+
+**Dlaczego ADR-019 zostaje otwarty.** Oba SE są warunkowe na jednej
+realizacji czegoś: rozkład zerowy — na zrealizowanych zwrotach 2016–2021,
+bootstrap — na ścieżce cechy. Pod H0 oba uśrednione dają tę samą wariancję
+bezwarunkową; pojedyncza realizacja może odbiegać, a przy cesze trwałej
+(kilka niezależnych „epizodów" w sześć lat) odbiega mocno. Który z nich
+pokrywa prawdę, da się sprawdzić **wyłącznie na danych syntetycznych**, gdzie
+prawda jest znana — i to jest następny krok, nie założenie.
+
+**Alternatywy.** (a) *Prerejestrować teraz, CI z bootstrapu, bo jest
+szerszy.* Odrzucone: szerszy nie znaczy poprawny — jeżeli oba są zaniżone,
+wybór większego nadal jest za wąski, a ADR-019 zabrania właśnie tego.
+(b) *`interbank_3m` z interpolacją kwietnia 2020.* Odrzucone: zgadywanie
+wartości w miesiącu, w którym stopy ruszały się najmocniej w całym oknie.
+(c) *Pobrać klucz API z `market-quant/.env`.* Niepotrzebne — ALFRED oddaje
+vintage bez klucza (`alfredgraph.csv?id=…&vintage_date=…`).
+
+**Konsekwencje.**
+
+* Następne kroki, oba bez prób: **M10** — pokrycie obu SE na świecie
+  syntetycznym (cecha trwała + zwroty syntetyczne, znana H0); **dane
+  point-in-time** z ALFRED.
+* Napięcie horyzontu z `HYPOTHESES.md` H04 (mechanizm miesięczny, h = 3 d)
+  pozostaje do rozstrzygnięcia w prerejestracji. Moc zmierzona jest dla
+  h = 3 d — jedynego horyzontu z kalibracją kosztu (M03, M04).
