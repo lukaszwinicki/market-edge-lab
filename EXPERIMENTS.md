@@ -20,9 +20,10 @@ projekcie: **0**.
 | M03 | — | `CLOSED` | **PRZECHODZI** — expectancy losowych wejść = −koszt w granicach 1 SE; symulator nie zna swapu | KEEP |
 | M04 | — | `CLOSED` | **PRZECHODZI** — wzmocnienie poprawne; próg wykrywalności to 57,3% / 61,9% trafności kierunku | KEEP |
 | M05 | — | `CLOSED` | **PRZECHODZI** — n_eff warstwy A zmierzone (1 902–5 150); `FALSIFIED` osiągalne we wszystkich komórkach | ADR-015 domknięty |
+| M06 | — | `CLOSED` | **PRZECHODZI** — zero pełnego modelu kosztu to −0,0422 R; złożenie swapu identyczne co do bitu | ADR-016 |
 | T001 | H01 | `WITHDRAWN` | **nieuruchomiony** — konstrukcja bez mocy na osiągnięcie własnych kryteriów (M02) | ADR-011 |
 | T002 | H02, H07 | `PLANNED` | — | — |
-| T003 | H01 | **`PREREGISTERED`** | — **nieuruchomiony** | sześć warunków spełnione; zostają dwa warunki startu |
+| T003 | H01 | **`PREREGISTERED`** | — **nieuruchomiony** | sześć warunków spełnione, **oba warunki startu zamknięte** |
 
 ---
 
@@ -384,6 +385,46 @@ zapieczętowanego. Testy: **281** (264 + 17, `tests/test_surrogate.py`).
 
 ---
 
+## M06 — Zero przyrządu po doliczeniu finansowania · `CLOSED` · **PRZECHODZI**
+
+**Cel.** Ustalić expectancy wejść losowych po **pełnym** koszcie — spread,
+podłoga, poślizg i marża swapu — czyli liczbę, wobec której mierzy się
+warstwa B T003. Dotąd znane było zero modelu niepełnego.
+
+**Bez nowej symulacji.** Przebieg czyta artefakty M03. Koszt finansowania
+zależy wyłącznie od ceny, dystansu stopu i czasów wejścia/wyjścia, a te są
+zapisane; powtórzenie symulacji dałoby te same transakcje przy tym samym
+ziarnie, nie kupując ani jednej nowej obserwacji.
+
+### Wynik (2026-09-24) · `20260924T141045Z-c94360`
+
+| h | marża | E[net] | pełny koszt | luka | w SE |
+|---|---|---|---|---|---|
+| 3 d | 1,0% | −0,0373 | 0,0422 | +0,0049 | **+0,96** |
+| 10 d | 1,0% | −0,0414 | 0,0392 | −0,0022 | **−0,27** |
+
+**Złożenie identyczne co do bitu.** `execution/costs.py` liczy swap
+z `TradeResult`, M03 liczył go własną pętlą; na 197 847 transakcjach
+`max_abs_diff = 0` przy każdej z trzech marż. To uzasadnia ADR-016:
+doliczenie po fakcie nie traci dokładności.
+
+**Luka kalibracji jest niezmiennicza względem marży** (`FACT`) — +0,00490 R
+przy 0,5%, 1% i 2% jednakowo. To tożsamość, nie pomiar: swap odejmuje się od
+obu stron równania naraz. Zapisane, żeby niezmienniczości nie wziąć za
+potwierdzenie.
+
+**Konwencja SE nie jest szczegółem** (`FACT`). Block bootstrap po dniu daje
+SE = 0,00507; naiwne SE po transakcjach 0,00290, czyli **1,75× za wąsko** —
+i zamieniłoby lukę 0,96 SE w 1,69 SE, czyli przejście w niepowodzenie.
+
+### Czego M06 nie zrobił
+
+Nie uruchomił symulatora. Nie policzył `mom_k`. Nie odkrył, że kalibracja
+przechodzi po doliczeniu swapu — to wynikało z tożsamości i było wiadome
+przed przebiegiem; treścią M06 jest zapisane zero i sprawdzenie złożenia.
+
+---
+
 ## T001 — H01 Momentum, pomiar na wszystkich barach · `WITHDRAWN`
 
 **Status:** `WITHDRAWN` (2026-09-23, **ADR-011**) · **nigdy nieuruchomiony**
@@ -519,14 +560,18 @@ Próg opłacalności (M04): **51,72% trafności**, czyli `ρ = 0,05401`.
 
 ### Warunki startu — dwa niespełnione
 
-| Co | Blokuje |
-|---|---|
-| **Warstwa etykiet** zbudowana od nowa, bez treści hipotezy w module | warstwę A i B |
-| **Swap wpięty w `CostModel`** + powtórzona kalibracja M03 (M06) | **wyłącznie warstwę B** — warstwa A nie zna kosztów |
+### Warunki startu — ZAMKNIĘTE 2026-09-24
 
-Warunek 6 nie blokuje kryteriów falsyfikacji, bo te stoją na warstwie A,
-a ta jest pomiarem informacji, nie ekonomii (ADR-003). Blokuje natomiast
-**każdą liczbę raportowaną z warstwy B**.
+| Co | Stan |
+|---|---|
+| **Warstwa etykiet** bez treści hipotezy w module | `src/research/labels.py` — nie importuje cechy, nazwa cechy jest parametrem; pilnuje tego test w źródle |
+| **Pełny koszt z członem finansowania** | `src/execution/costs.py` + **ADR-016** — swap NIE wchodzi do `CostModel`, bo marża jest osią, nie punktem. M06: złożenie identyczne co do bitu |
+
+Powstały przy okazji: `src/features/momentum.py` (`mom_k`, dopuszczone
+dopiero po zamrożeniu T003 — ADR-012) i `vol_pct_252` jako oś raportowania
+H03. Testy: **327**.
+
+**T003 nie ma już blokerów.** Zostaje samo uruchomienie, N: 7 → 10.
 
 ---
 

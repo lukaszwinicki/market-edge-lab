@@ -13,20 +13,21 @@ Każdą liczbę sprawdzać komendą, nie brać na wiarę.
 
 ## Gdzie jesteśmy
 
-**Seria kontrolna M01–M05 ZAMKNIĘTA.** Aparatura ma sprawdzone **zero**
-(M03), sprawdzone **wzmocnienie** (M04) i zmierzony **rozkład zerowy metryki
-głównej** (M05).
+**Seria kontrolna M01–M06 ZAMKNIĘTA.** Aparatura ma sprawdzone **zero**
+(M03), sprawdzone **wzmocnienie** (M04), zmierzony **rozkład zerowy metryki
+głównej** (M05) i zero **pełnego** modelu kosztu (M06).
 
 **T003 jest PREREJESTROWANY i ZAMROŻONY** (2026-09-24) —
 `configs/t003_momentum.yaml`, `sha256 c832dcdc…`. Pierwszy protokół na
 hipotezie, który spełnia wszystkie sześć warunków ADR-011. Nieuruchomiony.
 
 **Licznik prób: N = 7** (odziedziczone, ADR-004). Uruchomionych prób
-strategii w tym projekcie: **0**. M01–M05 to kontrole, nie liczą się do N.
+strategii w tym projekcie: **0**. M01–M06 to kontrole, nie liczą się do N.
 T003 doliczy **3** (N → 10), nie 6 jak T001.
 
-**Testy: 281.** **Następny krok: dwa warunki startu T003** — warstwa etykiet
-i wpięcie swapu. Oba implementacyjne, żadnych decyzji metodologicznych.
+**Testy: 327.** **Oba warunki startu T003 zamknięte** (2026-09-24).
+**Następny krok: uruchomienie T003**, N: 7 → 10. To jedyny pozostały krok
+i jedyny, który zapala próby.
 
 ---
 
@@ -39,11 +40,13 @@ i wpięcie swapu. Oba implementacyjne, żadnych decyzji metodologicznych.
 | **M03** | **PRZECHODZI** | Wejścia losowe dają expectancy = −koszt w granicach **1 SE**. Wynikowi negatywnemu będzie można wierzyć |
 | **M04** | **PRZECHODZI** | Wzmocnienie poprawne; próg opłacalności **51,72%** trafności kierunku |
 | **M05** | **PRZECHODZI** | `n_eff` warstwy A **zmierzone**: 1 902–5 150. `FALSIFIED` osiągalne we wszystkich komórkach T003 |
+| **M06** | **PRZECHODZI** | Zero **pełnego** modelu kosztu: **−0,0422 R** (h=3d, marża 1%). Złożenie swapu identyczne co do bitu |
 
 Raporty: `reports/m02_power_audit.md`, `m03_random_control.md`,
 `m04_sensitivity.md`, `m05_layer_a_null.md`. Przebiegi:
 `20260923T172201Z-fa3731`, `…T175353Z-087adf`, `…T181510Z-963686`,
-`20260924T134703Z-cd0d96`.
+`20260924T134703Z-cd0d96`, `…T141045Z-c94360`. M06 nie ma osobnego raportu —
+jego narracja żyje w ADR-016 i `EXPERIMENTS.md`.
 
 ### Liczby, które trzeba mieć w głowie
 
@@ -67,7 +70,8 @@ Warstwa B, dla porównania i do wyceny ekonomicznej:
 | | h = 3 d |
 |---|---|
 | σ wyniku w R (dla geometrii 1,1/2,2) | 0,9165 |
-| Koszt modelowany / + marża swapu 1% | 0,0297 / **0,0422 R** |
+| Koszt modelowany / **pełny, z marżą swapu 1%** | 0,0297 / **0,0422 R** |
+| Zero przyrządu przy pełnym koszcie (M06) | **−0,0373 R**, luka 0,96 SE |
 | Próg wykrywalności warstwy B | **57,33%** — **nie jest już instrumentem falsyfikacji** |
 
 ---
@@ -78,8 +82,8 @@ Warstwa B, dla porównania i do wyceny ekonomicznej:
 ADR-009 implikował 0,455 R; zmierzone **0,92 R**. Stąd wycofanie T001
 (ADR-011).
 
-**2. Symulator nie zna swapu** (M03, `FACT`). Przy h=10d brakujący człon to
-**1,32× cały modelowany koszt**. `INFERENCE`: przewaga kosztowa długiego
+**2. Symulator nie zna swapu** (M03, `FACT`; **zamknięte przez ADR-016**).
+Przy h=10d brakujący człon to **1,32× cały modelowany koszt**. `INFERENCE`: przewaga kosztowa długiego
 horyzontu była **artefaktem pominięcia swapu** — stosunek kosztu h=3d/h=10d
 spada z 1,76× do **1,08×**. **h=3d dominuje h=10d na obu osiach.**
 
@@ -116,6 +120,7 @@ założeniem niekonserwatywnym, wyglądającym na ostrożne.
 | **ADR-013** | Ramię „wyrocznia postarzona" nie powstało — łamałoby regułę z ADR-012. Reguła zadziałała przeciwko zaleceniu z tego samego ADR-u |
 | **ADR-014** | `P_eff = 2,00` dla warstwy B (model implikowany przez **mechanizm H01**, nie ostrożność). **Geometria barier bez zmian** — zmiana warta ≤0,07 pp, kosztuje powtórzenie audytu mocy |
 | **ADR-015** | Kryteria falsyfikacji **wracają na warstwę A** — to przywrócenie ADR-003, nie przebudowa. Warstwa B = wycena, nie test. Siatka **3 komórki**, h=10d usunięty. N: 7 → 10 |
+| **ADR-016** | Marża swapu **nie wchodzi** do `CostModel` — jest osią, nie punktem. Pełny koszt składa się na wyniku symulacji; M06 potwierdził identyczność co do bitu. Warunek 6 spełniony |
 
 ---
 
@@ -125,14 +130,16 @@ założeniem niekonserwatywnym, wyglądającym na ostrożne.
 |---|---|---|
 | ~~1–5~~ | ~~**M01–M05** — seria kontrolna~~ | **ZAMKNIĘTA** |
 | ~~6~~ | ~~**Prerejestracja T003**~~ | **ZAMROŻONA** 2026-09-24, `sha256 c832dcdc…` |
-| **7** | **Warstwa etykiet** ← **TU JESTEŚMY** | Blokuje obie warstwy T003. Buduje się od nowa, bez treści hipotezy w module |
-| 8 | **Swap w `CostModel` + M06** (powtórzona kalibracja M03) | Blokuje **wyłącznie warstwę B**. Kontrola, nie próba |
-| 9 | **T003** — uruchomienie | N: 7 → 10 |
+| ~~7~~ | ~~**Warstwa etykiet**~~ | **GOTOWA** — `src/research/labels.py`, bez treści hipotezy w module |
+| ~~8~~ | ~~**Pełny koszt z finansowaniem**~~ | **GOTOWY** — ADR-016 + M06. Swap NIE wchodzi do `CostModel` |
+| **9** | **T003 — uruchomienie** ← **TU JESTEŚMY** | **N: 7 → 10.** Pierwsza próba zapalona w tym projekcie |
 | 10 | **T002** — H07 zdarzenie vs H02 stan, redundancja z H01 | Prerejestracja po zamknięciu T003 |
 
-**Dlaczego warunek 6 nie blokuje kryteriów.** Falsyfikacja stoi na warstwie A,
-a ta jest pomiarem informacji, nie ekonomii (ADR-003) — nie zna kosztów.
-Swap blokuje **każdą liczbę raportowaną z warstwy B** i nic ponadto.
+**Dlaczego swap nie trafił do `CostModel`** (ADR-016). Marża jest **osią**,
+nie punktem: prerejestracja wymaga trzech wartości z jednego przebiegu, więc
+liczba wpisana w `CostModel` spełniałaby `included: true`, łamiąc
+`margin_axis`. Doliczenie po fakcie jest identyczne co do bitu (M06, 197 847
+transakcji) i nie unieważnia weryfikacji M01/M03/M04.
 
 ---
 
@@ -143,8 +150,9 @@ Swap blokuje **każdą liczbę raportowaną z warstwy B** i nic ponadto.
 | **Kohorta replikacyjna nie istnieje** | Zero bajtów dla XAUUSD, WTI, S&P 500, DAX. Replikacja niemożliwa → **żadna hipoteza nie osiągnie `SURVIVED`** w tej fazie (ADR-008). Najwyższy status: `SUPPORTED` |
 | **Sześć par to sześć odmian jednego zakładu** | Średnia \|ρ\| = 0,401 na oknie h, 0,389–0,404 na oknach k. Stąd `P_eff` ≈ 3,2, a nie 6. **Jedyna dźwignia ruszająca to o czynnik to instrumenty spoza czynnika USD** — czyli ta sama kohorta replikacyjna, której nie ma. Zdobycie tych danych kupuje H01 więcej mocy niż cokolwiek w prerejestracji |
 | **Segment RESEARCH był oglądany** | 7 prób poprzednika na tych samych danych. Poprzeczka DSR startuje podwyższona (ADR-004) |
-| **Warstwa etykiet nie istnieje** | Nie została przeniesiona, bo niesie treść hipotezy. **Warunek startu T003** |
-| **Swap nie jest wpięty w symulator** | `src/execution/swap.py` liczy po fakcie i ma testy, ale `CostModel` go nie zna. Wpięcie wymaga **powtórzenia kalibracji M03** (M06). Warunek startu warstwy B |
+| ~~Warstwa etykiet~~ | **ZBUDOWANA** 2026-09-24 |
+| ~~Swap nie wpięty~~ | **ZAMKNIĘTE** przez ADR-016 — wpięcie do `CostModel` odrzucone jako łamiące oś marży; pełny koszt składa się na wyniku symulacji |
+| **Kubełki `vol_regime` nie były w prerejestracji** | Prerejestracja wymienia oś `vol_regime`, nie podając granic. Przyjęte **tercyle**, zadeklarowane w kodzie **przed** uruchomieniem T003 (`VOL_REGIME_EDGES`). Nie wchodzą do żadnego kryterium falsyfikacji — te liczą się na komórce, nie na kubełku |
 | **Martwa strefa przy k = 480** | +0,64 pp po korekcie Holma: efekt o trafności między 51,72% a 52,36% będzie realnie opłacalny, a pomiar zwróci `NOT_SUPPORTED`. **Zapisane w prerejestracji przed uruchomieniem**, nie do odkrycia po fakcie |
 | **Rentowności 2-letnie** `UNKNOWN` | Brak spójnej definicji dla wszystkich walut. Blokuje H04 |
 | **Kontrola przesuniętych cech** `UNKNOWN` | Anomalia poprzednika nadal nierozstrzygnięta na cesze prawdziwej — rozstrzyga ją **ramię kontrolne wewnątrz T003**, z kryterium zapisanym przed uruchomieniem |

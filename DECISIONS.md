@@ -842,3 +842,79 @@ z H02, na 172 obserwacjach efektywnych. Brak pomiaru to nie jest dowód.
   instrumenty spoza czynnika USD — kohorta replikacyjna z ADR-008, która ma
   zero bajtów. **Zdobycie tych danych kupuje H01 więcej mocy niż cokolwiek,
   co da się zapisać w prerejestracji**, i przy okazji odblokowuje `SURVIVED`.
+
+---
+
+## ADR-016 — Marża swapu nie wchodzi do `CostModel`; pełny koszt składa się na wyniku symulacji
+
+**Status:** ACCEPTED · 2026-09-24 · **Zmienia:** warunek 6 prerejestracji T003
+(ADR-011) w części dotyczącej sposobu wpięcia · **Opiera się na:** M03, M06
+
+**Decyzja.** Człon finansowania **nie zostaje wpięty w `CostModel`**. Pełny
+koszt składa się w `src/execution/costs.py`, na gotowym `TradeResult`, przez
+całą oś marży naraz. `research/labels.py::layer_b` wymaga osi marży jako
+argumentu **bez wartości domyślnej**, a `costs.reportable()` rzuca wyjątkiem
+na ramce bez kolumn `r_net_<marża>`.
+
+**Powód.** PROGRESS i nota w prerejestracji T003 zapowiadały „wpięcie swapu
+w `CostModel` + powtórzenie kalibracji M03". Przy implementacji okazało się,
+że wpięcie jest **niewykonalne bez złamania prerejestracji**, a przy tym
+niepotrzebne:
+
+1. **Marża jest osią, nie punktem.** Prerejestracja T003 (`layer_b.costs.swap.
+   margin_axis`) wymaga trzech wartości — 0,5% / 1% / 2% — z jednego
+   przebiegu. Liczba wpisana w `CostModel` wymusiłaby trzy symulacje tej samej
+   próby. Wpięcie realizowałoby więc `included: true` kosztem `margin_axis`,
+   czyli spełniało jedną deklarację, łamiąc drugą.
+2. **Dokładność jest identyczna, i to jest zmierzone.** Koszt finansowania
+   zależy wyłącznie od ceny, dystansu stopu i czasów wejścia/wyjścia — wszystkie
+   są w `TradeResult`. M06 policzył swap z `TradeResult` i porównał
+   z wartościami, które M03 policzył własną pętlą, na 197 847 transakcjach:
+   **identyczne co do bitu**, `max_abs_diff = 0` przy każdej z trzech marż.
+3. **Symulator jest zweryfikowany co do bitu** wobec `market-quant` (M01)
+   i skalibrowany przez M03 oraz M04 (zgodność 0,0007 R). Dołożenie mu członu
+   kosztu unieważnia obie weryfikacje w zamian za zero dokładności.
+
+**Czego to NIE zmienia w prerejestracji.** Wiążąca treść warunku 6 brzmi
+`included: true` plus oś marży, i jest spełniona co do joty: **żadna liczba
+warstwy B nie może powstać bez członu finansowania**, bo `layer_b` nie ma
+domyślnej marży, a raportowanie bez kolumn net rzuca wyjątkiem. Zmienia się
+wyłącznie to, co nota w prerejestracji mówiła o SPOSOBIE — a nota opisywała
+przewidywaną implementację, nie deklarację metodologiczną.
+
+**Wynik M06** (`20260924T141045Z-c94360`, `control`, N bez zmian). Zero
+przyrządu przy **pełnym** koszcie, block bootstrap po dniu:
+
+| h | marża | E[net] | pełny koszt | luka | w SE |
+|---|---|---|---|---|---|
+| 3 d | 1,0% | −0,0373 | 0,0422 | +0,0049 | +0,96 |
+| 10 d | 1,0% | −0,0414 | 0,0392 | −0,0022 | −0,27 |
+
+**Luka kalibracji jest niezmiennicza względem marży** — +0,00490 R przy
+0,5%, 1% i 2% jednakowo. To nie jest wynik empiryczny, tylko tożsamość: swap
+odejmuje się od obu stron równania naraz. Zapisane wprost, żeby nikt nie
+próbował mierzyć tego drugi raz i nie wziął niezmienniczości za potwierdzenie.
+
+**Konwencja SE ma znaczenie.** M06 używa block bootstrapu po dniu
+(`validation.bootstrap`), tak jak M03. Naiwne SE po transakcjach dałoby
+0,00290 zamiast 0,00507 — **1,75× za wąsko** — i zamieniłoby lukę 0,96 SE
+w lukę 1,69 SE, czyli przejście w niepowodzenie. Nakładanie okien wynikowych
+nie jest szczegółem raportowania.
+
+**Alternatywy.** (a) *Wpiąć jedną marżę (1%) i zrezygnować z osi.* Odrzucone:
+łamie prerejestrację, a M03 pokazał, że wynik zależny od wartości punktowej
+marży jest nieważny — stąd oś, a nie punkt. (b) *Wpiąć oś, zwracając trzy
+wyniki z symulatora.* Odrzucone: `TradeResult` przestaje być wynikiem jednej
+transakcji, a M01/M03/M04 tracą weryfikację. (c) *Zostawić jak było, bo M03
+i tak liczył swap.* Odrzucone: M03 liczył go z konwencji, nie z przymusu —
+a brak swapu został wykryty w module, który miał testy i wyglądał na
+kompletny. Pominięcie ma wymagać skasowania kolumny, nie zapomnienia o niej.
+
+**Konsekwencje.**
+
+* Warunek 6 prerejestracji T003 jest **spełniony**. Oba warunki startu T003
+  zamknięte; zostaje samo uruchomienie.
+* `M06` nie jest nową symulacją i nie mógł nią być: te same transakcje przy
+  tym samym ziarnie, o godzinę dłużej, bez jednej nowej obserwacji.
+* Zero, wobec którego mierzy się warstwa B T003, to **−0,0422 R** (h = 3 d,
+  marża 1%), nie −0,0297 R modelu niepełnego.

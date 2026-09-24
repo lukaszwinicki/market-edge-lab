@@ -42,6 +42,7 @@ from typing import Callable
 
 import polars as pl
 
+from ..execution.costs import attach_swap
 from ..execution.simulator import CostModel
 from ..features.volatility import attach_vol_pct, vol_regime
 from .entries import simulate_entries
@@ -97,6 +98,7 @@ def layer_a(decisions: pl.DataFrame, feature_col: str) -> pl.DataFrame:
 
 def layer_b(observations: pl.DataFrame, m1: pl.DataFrame, cost: CostModel, *,
             feature_col: str, sl_mult: float, tp_mult: float,
+            margins: tuple[float, ...],
             direction: Callable[[pl.Expr], pl.Expr] = long_short,
             ) -> pl.DataFrame:
     """Obserwacje warstwy B: kierunek z cechy, wynik z symulatora tickowego.
@@ -107,10 +109,16 @@ def layer_b(observations: pl.DataFrame, m1: pl.DataFrame, cost: CostModel, *,
 
     `direction` jest parametrem, żeby kontrola permutacyjna i kontrola losowa
     przechodziły tą samą ścieżką co trial. Domyślnie znak cechy.
+
+    `margins` jest **wymagane i bez wartości domyślnej** (ADR-016): pełny
+    koszt zawiera człon finansowania, a M03 wykrył jego brak dopiero po tym,
+    jak moduł swapu istniał, miał testy i wyglądał na kompletny. Wynik wraca
+    z kolumnami `r_net_<marża>`; samo `r` zostaje, żeby dało się zobaczyć,
+    ile kosztuje finansowanie.
     """
     sided = observations.with_columns(direction(pl.col(feature_col)).alias("side"))
-    return simulate_entries(sided, m1, cost,
-                            sl_mult=sl_mult, tp_mult=tp_mult)
+    played = simulate_entries(sided, m1, cost, sl_mult=sl_mult, tp_mult=tp_mult)
+    return attach_swap(played, margins)
 
 
 def check_required(decisions: pl.DataFrame) -> None:
