@@ -60,7 +60,12 @@ def pip_size(symbol: str) -> float:
     Wyprowadzana ze skali punktu, a nie z osobnej tabeli — dwie tabele
     mogłyby się rozjechać. Kwotowanie jest 5- albo 3-cyfrowe, więc pips
     to zawsze 10 punktów: 1e-4 dla par bez JPY, 1e-2 dla par z JPY.
+
+    Pojęcie „pipsa" nie przenosi się na złoto ani indeksy, więc dla
+    instrumentu spoza kohorty funkcja ODMAWIA zamiast zgadywać.
     """
+    if symbol not in known_instruments():
+        _refuse(symbol, "wartości pipsa")
     return SYMBOL_SCALE[symbol] * 10
 
 
@@ -76,6 +81,40 @@ PLAUSIBLE_RANGE: dict[str, tuple[float, float]] = {
 }
 
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+
+
+class UnknownInstrumentError(KeyError):
+    """Instrument spoza skalibrowanej kohorty. Dziedziczy po `KeyError`,
+    więc nie zmienia zachowania kodu, który go już łapał."""
+
+
+def known_instruments() -> frozenset[str]:
+    """Instrumenty, dla których aparatura zna skalę punktu i zakres ceny.
+
+    To jest JEDYNA lista, wobec której wolno liczyć koszt albo dekodować
+    ticki. Kohorta replikacyjna z `base.yaml` (XAUUSD, WTI, SPX500, DAX)
+    **nie jest** tu obecna i ma nie być, dopóki nie przejdzie własnej
+    kalibracji — patrz `_refuse()`.
+    """
+    return frozenset(SYMBOL_SCALE) & frozenset(PLAUSIBLE_RANGE)
+
+
+def _refuse(symbol: str, what: str) -> None:
+    """Odmów obsługi instrumentu spoza kohorty — głośno i z instrukcją.
+
+    Cicha odpowiedź jest tu groźniejsza od wyjątku: `is_cross("DAX")`
+    zwracało `True`, czyli podłogę kosztu „FX cross" 2,5 pipsa dla indeksu.
+    Backtest policzyłby się do końca i zwrócił liczbę bez znaczenia.
+    """
+    raise UnknownInstrumentError(
+        f"{symbol}: brak kalibracji, nie można policzyć {what}. "
+        f"Skalibrowane: {sorted(known_instruments())}. "
+        "Instrument spoza tej listy wymaga skali punktu, zakresu ceny, "
+        "progu doby (`min_h1_bars`) i własnego poziomu kosztu — a zmiana "
+        "sekcji `frozen: true` w base.yaml wymaga NOWEGO ADR-u. "
+        "Aparatura była kalibrowana na FX (M03, M04); inna klasa aktywów "
+        "wymaga powtórzenia obu."
+    )
 
 
 class ScaleError(ValueError):
@@ -122,6 +161,8 @@ def decode_bi5(payload: bytes, symbol: str, hour: dt.datetime) -> TickBlock:
 
     Pusty payload oznacza godzinę bez handlu i daje pusty TickBlock.
     """
+    if symbol not in known_instruments():
+        _refuse(symbol, "skali ticków")
     scale = SYMBOL_SCALE[symbol]
     hour = hour.astimezone(dt.timezone.utc)
 

@@ -31,6 +31,7 @@ import yaml
 
 from pathlib import Path
 
+from src.data.dukascopy import pip_size
 from src.data.resample import last_closed_bar
 from src.harness.market import cost_model_for, is_cross
 from src.harness.registry import GitState
@@ -177,9 +178,18 @@ def test_usd_pairs_are_not_crosses(sym):
     assert is_cross(sym) is False
 
 
-@pytest.mark.parametrize("sym", ["EURJPY", "GBPJPY", "EURGBP", "AUDNZD"])
-def test_pairs_without_usd_are_crosses(sym):
-    assert is_cross(sym) is True
+def test_the_only_calibrated_cross_is_classified_as_one():
+    assert is_cross("EURJPY") is True
+
+
+@pytest.mark.parametrize("sym", ["GBPJPY", "EURGBP", "AUDNZD"])
+def test_uncalibrated_fx_pairs_are_refused_too(sym):
+    """Odmowa nie dotyczy tylko innych klas aktywów. Para FX spoza kohorty
+    też nie ma u nas skali punktu — a `"USD" not in symbol` odpowiadało na
+    nią równie chętnie jak na `DAX`."""
+    from src.data.dukascopy import UnknownInstrumentError
+    with pytest.raises(UnknownInstrumentError):
+        is_cross(sym)
 
 
 def test_the_whole_discovery_cohort_is_classified_as_declared():
@@ -248,3 +258,81 @@ def test_the_fingerprint_is_stable_for_the_same_state():
     a = GitState("abc", True, "d", ["x.py"])
     b = GitState("abc", True, "d", ["x.py"])
     assert a.diff_sha256 == b.diff_sha256
+
+
+# --------------------------------------------------------------------------
+# 7. Odmowa dla instrumentów spoza skalibrowanej kohorty
+# --------------------------------------------------------------------------
+# Kohorta replikacyjna (XAUUSD, WTI, SPX500, DAX) jest zamrożona w base.yaml,
+# ale aparatura jej NIE ZNA: nie ma skali punktu, zakresu ceny ani poziomu
+# kosztu. Do 2026-09-24 część funkcji odpowiadała na pytania o te instrumenty
+# liczbą — `is_cross("DAX")` zwracało True, czyli podłogę „FX cross" 2,5
+# pipsa dla indeksu. Backtest policzyłby się do końca.
+#
+# Cicha zła odpowiedź jest tu groźniejsza od wyjątku, bo wynik, który się
+# policzył, wygląda jak wynik.
+
+from src.data.dukascopy import (  # noqa: E402
+    SYMBOL_SCALE, UnknownInstrumentError, decode_bi5, known_instruments,
+)
+
+REPLICATION = ("XAUUSD", "WTI", "SPX500", "DAX")
+
+
+def test_known_instruments_is_exactly_the_fx_discovery_cohort():
+    cfg = yaml.safe_load((ROOT / "configs" / "base.yaml").read_text(encoding="utf-8"))
+    assert known_instruments() == frozenset(cfg["instruments"]["discovery"])
+
+
+def test_the_replication_cohort_is_declared_but_not_calibrated():
+    """ADR-008 zamroził skład kohorty. Zamrożenie składu to NIE to samo,
+    co gotowość aparatury — i ta różnica ma być widoczna."""
+    cfg = yaml.safe_load((ROOT / "configs" / "base.yaml").read_text(encoding="utf-8"))
+    declared = set(cfg["instruments"]["replication"]["symbols"])
+    assert declared == set(REPLICATION)
+    assert declared & known_instruments() == set()
+
+
+@pytest.mark.parametrize("sym", REPLICATION)
+def test_pip_size_refuses_an_uncalibrated_instrument(sym):
+    with pytest.raises(UnknownInstrumentError):
+        pip_size(sym)
+
+
+@pytest.mark.parametrize("sym", REPLICATION)
+def test_is_cross_refuses_instead_of_guessing(sym):
+    """Najgroźniejszy z całej grupy: zwracał `True`/`False` bez ostrzeżenia."""
+    with pytest.raises(UnknownInstrumentError):
+        is_cross(sym)
+
+
+@pytest.mark.parametrize("sym", REPLICATION)
+def test_cost_model_refuses_an_uncalibrated_instrument(sym):
+    cfg = yaml.safe_load((ROOT / "configs" / "base.yaml").read_text(encoding="utf-8"))
+    with pytest.raises(UnknownInstrumentError):
+        cost_model_for(sym, cfg)
+
+
+def test_tick_decoding_refuses_an_uncalibrated_instrument():
+    with pytest.raises(UnknownInstrumentError):
+        decode_bi5(b"", "SPX500", dt.datetime(2020, 4, 20, 14, tzinfo=UTC))
+
+
+def test_the_refusal_says_what_is_missing_and_what_it_would_cost():
+    """Komunikat ma prowadzić do decyzji, nie tylko zatrzymywać."""
+    with pytest.raises(UnknownInstrumentError) as e:
+        pip_size("DAX")
+    msg = str(e.value)
+    for phrase in ("kalibracji", "min_h1_bars", "ADR", "M03", "M04"):
+        assert phrase in msg
+
+
+def test_the_refusal_is_a_key_error_so_old_handlers_still_work():
+    assert issubclass(UnknownInstrumentError, KeyError)
+
+
+@pytest.mark.parametrize("sym", sorted(SYMBOL_SCALE))
+def test_every_calibrated_instrument_still_answers(sym):
+    """Odmowa nie może objąć kohorty, na której wszystko dotąd policzono."""
+    assert pip_size(sym) > 0
+    assert isinstance(is_cross(sym), bool)

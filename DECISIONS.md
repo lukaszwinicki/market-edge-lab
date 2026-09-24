@@ -998,3 +998,85 @@ do decyzji ekonomicznej jest nieskorygowana o 10 spojrzeń.
   — nie ma z czego jej zbudować. Wpięcie należy do pierwszego eksperymentu,
   który będzie cokolwiek dopasowywał, i ma być zadeklarowane w jego
   prerejestracji.
+
+---
+
+## ADR-018 — Kohorta replikacyjna zostaje kohortą replikacyjną; aparatura odmawia instrumentów nieskalibrowanych
+
+**Status:** ACCEPTED · 2026-09-24 · **Potwierdza:** ADR-008
+· **Prostuje uwagę w:** ADR-015 (sekcja Konsekwencje)
+
+**Decyzja.** Dwie rzeczy:
+
+1. **XAUUSD, WTI, SPX500 i DAX pozostają wyłącznie kohortą replikacyjną.**
+   Nie wchodzą do pomiaru odkrywczego, nawet gdyby podniosły `P_eff`.
+2. **Aparatura odmawia obsługi instrumentu spoza skalibrowanej kohorty** —
+   `pip_size`, `is_cross`, `cost_model_for` i `decode_bi5` rzucają
+   `UnknownInstrumentError` zamiast zwracać liczbę.
+
+**Powód — punkt 1.** ADR-015 zapisał w Konsekwencjach uwagę, że zdobycie tych
+danych „kupuje H01 więcej mocy niż cokolwiek, co da się zapisać
+w prerejestracji". Uwaga jest **wewnętrznie sprzeczna z ADR-008**, a sprzeczności
+nie dało się zauważyć, dopóki nikt nie zapytał, jak konkretnie miałoby to
+działać.
+
+`P_eff` rośnie wyłącznie wtedy, gdy instrument wejdzie do **pomiaru
+odkrywczego** — czyli do tej samej średniej, w której siedzi sześć par. Ale
+ADR-008 zamroził te cztery instrumenty jako kohortę **replikacyjną**, właśnie
+po to, żeby pozostały nietknięte: *„wybór instrumentów replikacyjnych po
+zobaczeniu wyników jest selection bias"*.
+
+**Nie da się mieć obu naraz.** Albo podnoszą moc odkrywania i przestają być
+kohortą replikacyjną — wtedy `SURVIVED` staje się nieosiągalny na zawsze,
+nie tylko w tej fazie — albo zostają nietknięte i nie robią nic dla mocy T003.
+ADR-015 obiecywał jedno i drugie.
+
+Rozstrzygamy na rzecz ADR-008. Powód jest asymetrią kosztu: moc odkrywania da
+się odzyskać innym eksperymentem, a **spalonej kohorty replikacyjnej nie da
+się odtworzyć** — raz obejrzana, jest obejrzana. `SUPPORTED` bez replikacji
+jest wynikiem częściowym; `SURVIVED` bez nietkniętej kohorty jest niemożliwy.
+
+**Powód — punkt 2.** Skład kohorty był zamrożony, ale aparatura jej **nie
+znała** — i odpowiadała na pytania o nią liczbami bez znaczenia:
+
+| Wywołanie | Zwracało | Znaczenie |
+|---|---|---|
+| `is_cross("DAX")` | `True` | podłoga kosztu „FX cross" 2,5 pipsa dla indeksu |
+| `is_cross("XAUUSD")` | `False` | podłoga „FX major" 1,5 pipsa dla złota |
+| `pip_size("SPX500")` | `KeyError` | goły wyjątek bez instrukcji |
+
+Pierwsze dwa są groźniejsze od trzeciego: **backtest policzyłby się do końca
+i zwrócił wynik**. Reguła `"USD" not in symbol` odpowiada na pytanie „czy to
+cross" dla każdego łańcucha znaków, także dla `DAX`, `GBPJPY` i `KOT`.
+
+**Czego brakuje tym instrumentom** (i co musi powstać, zanim wejdą): skala
+punktu, zakres wiarygodnej ceny, próg pełnej doby (`min_h1_bars: 12` jest
+skalibrowane pod FX 24/5 — przy krótszej sesji **każda** doba wypadałaby
+z serii dziennej i próba wyszłaby pusta **bez błędu**), własny poziom kosztu
+zamiast `fx_majors`/`fx_crosses`, oraz mapowanie naszych etykiet na kody
+feedu (`WTI`, `SPX500`, `DAX` to etykiety z `base.yaml`, nie kody Dukascopy).
+
+**Powtórzenie kalibracji.** Aparatura ma zmierzone zero (M03) i wzmocnienie
+(M04) **na FX**. ADR-005 mówi, że przeniesiony kod nie dziedziczy zaufania;
+to samo dotyczy przyrządu przeniesionego na inną klasę aktywów. Zanim
+cokolwiek zostanie zreplikowane, M03 i M04 muszą zostać powtórzone per klasa.
+Replikacja jest **fazą**, nie uruchomieniem skryptu z inną listą symboli.
+
+**Alternatywy.** (a) *Dołożyć kohortę do pomiaru odkrywczego, bo moc jest teraz,
+a replikacja kiedyś.* Odrzucone: patrz asymetria kosztu wyżej. (b) *Zostawić
+ciche odpowiedzi i po prostu nie wołać tych funkcji dla nieskalibrowanych
+instrumentów.* Odrzucone: „nie wołać" jest konwencją, a konwencje w tym
+projekcie już trzy razy okazały się niewykonywane (swap, DSR, checklista
+leakage'u). (c) *Zmienić `is_cross` tak, by zwracała `None`.* Odrzucone:
+`None` przechodzi dalej i wybucha później, w gorszym miejscu.
+
+**Konsekwencje.**
+
+* `known_instruments()` jest jedyną listą, wobec której wolno liczyć koszt
+  albo dekodować ticki; test pilnuje, że jest równa `instruments.discovery`.
+* Odmowa dotyczy także **par FX spoza kohorty** (`GBPJPY`, `EURGBP`, …) —
+  ich skali też nie znamy.
+* `UnknownInstrumentError` dziedziczy po `KeyError`, więc nie zmienia
+  zachowania kodu, który już łapał `KeyError`.
+* Zmiana roli kohorty wymaga **nowego ADR-u**, który jawnie unieważni ten.
+  Nie wystarczy edycja `base.yaml`.

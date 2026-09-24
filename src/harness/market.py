@@ -40,7 +40,7 @@ from pathlib import Path
 
 import polars as pl
 
-from ..data.dukascopy import pip_size
+from ..data.dukascopy import known_instruments, pip_size
 from ..data.provenance import count_cache_hours, read_provenance
 from ..data.resample import BAR_SCHEMA
 from ..execution.simulator import CostModel
@@ -175,7 +175,16 @@ def require_fresh_bars(symbols: list[str], start: dt.datetime, end: dt.datetime,
 
 
 def is_cross(symbol: str) -> bool:
-    """Para bez USD. Podłoga kosztu dla crossów jest wyższa (ADR-024)."""
+    """Para bez USD. Podłoga kosztu dla crossów jest wyższa (ADR-024).
+
+    Pytanie „czy to cross" ma sens WYŁĄCZNIE dla FX. Reguła `"USD" not in
+    symbol` odpowiadała na nie także dla `DAX` (True) i `XAUUSD` (False),
+    dając indeksowi podłogę „FX cross" 2,5 pipsa — liczbę bez znaczenia,
+    zwróconą bez ostrzeżenia. Dlatego teraz odmawia.
+    """
+    if symbol not in known_instruments():
+        from ..data.dukascopy import _refuse
+        _refuse(symbol, "klasyfikacji major/cross")
     return "USD" not in symbol
 
 

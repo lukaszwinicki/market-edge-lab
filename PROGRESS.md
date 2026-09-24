@@ -25,7 +25,7 @@ hipotezie, który spełnia wszystkie sześć warunków ADR-011. Nieuruchomiony.
 strategii w tym projekcie: **0**. M01–M06 to kontrole, nie liczą się do N.
 T003 doliczy **3** (N → 10), nie 6 jak T001.
 
-**Testy: 492.** **Oba warunki startu T003 zamknięte** (2026-09-24), runner
+**Testy: 515.** **Oba warunki startu T003 zamknięte** (2026-09-24), runner
 kompletny wobec prerejestracji (warstwa A i B, osie, diagnostyka par,
 `t003.md`, `observations.parquet`) i sprawdzony `--self-test`.
 **Następny krok: uruchomienie T003**, N: 7 → 10. Jedyny pozostały krok
@@ -124,6 +124,7 @@ założeniem niekonserwatywnym, wyglądającym na ostrożne.
 | **ADR-015** | Kryteria falsyfikacji **wracają na warstwę A** — to przywrócenie ADR-003, nie przebudowa. Warstwa B = wycena, nie test. Siatka **3 komórki**, h=10d usunięty. N: 7 → 10 |
 | **ADR-016** | Marża swapu **nie wchodzi** do `CostModel` — jest osią, nie punktem. Pełny koszt składa się na wyniku symulacji; M06 potwierdził identyczność co do bitu. Warunek 6 spełniony |
 | **ADR-017** | DSR **wreszcie liczony** — `dsr.py` nie był importowany przez nic, mimo że ADR-004 prowadził licznik właśnie dla niego. `V[SR]` jako nawias. Dla T003 **diagnostyka**, nie kryterium; każda przyszła prerejestracja deklaruje deflację przed zamrożeniem |
+| **ADR-018** | Kohorta replikacyjna **zostaje replikacyjną** — nie wchodzi do pomiaru odkrywczego, choćby podnosiła `P_eff`. Prostuje sprzeczną uwagę z ADR-015. Aparatura **odmawia** instrumentów nieskalibrowanych zamiast zwracać liczbę bez znaczenia |
 
 ---
 
@@ -151,13 +152,14 @@ transakcji) i nie unieważnia weryfikacji M01/M03/M04.
 | Sprawa | Stan |
 |---|---|
 | **Kohorta replikacyjna nie istnieje** | Zero bajtów dla XAUUSD, WTI, S&P 500, DAX. Replikacja niemożliwa → **żadna hipoteza nie osiągnie `SURVIVED`** w tej fazie (ADR-008). Najwyższy status: `SUPPORTED` |
-| **Sześć par to sześć odmian jednego zakładu** | Średnia \|ρ\| = 0,401 na oknie h, 0,389–0,404 na oknach k. Stąd `P_eff` ≈ 3,2, a nie 6. **Jedyna dźwignia ruszająca to o czynnik to instrumenty spoza czynnika USD** — czyli ta sama kohorta replikacyjna, której nie ma. Zdobycie tych danych kupuje H01 więcej mocy niż cokolwiek w prerejestracji |
+| **Sześć par to sześć odmian jednego zakładu** | Średnia \|ρ\| = 0,401 na oknie h, 0,389–0,404 na oknach k. Stąd `P_eff` ≈ 3,2, a nie 6. Dźwignią byłyby instrumenty spoza czynnika USD — ale **nie może to być kohorta replikacyjna** (ADR-018): jej użycie do pomiaru odkrywczego kasuje `SURVIVED` na zawsze. Moc odkrywania da się odzyskać innym eksperymentem, spalonej kohorty nie da się odtworzyć. **Uwaga w ADR-015 obiecywała jedno i drugie i była sprzeczna z ADR-008** |
 | **Segment RESEARCH był oglądany** | 7 prób poprzednika na tych samych danych. Poprzeczka DSR startuje podwyższona (ADR-004) |
 | ~~Warstwa etykiet~~ | **ZBUDOWANA** 2026-09-24 |
 | ~~Swap nie wpięty~~ | **ZAMKNIĘTE** przez ADR-016 — wpięcie do `CostModel` odrzucone jako łamiące oś marży; pełny koszt składa się na wyniku symulacji |
 | **T003 nie deklaruje deflacji o próby odziedziczone** | Kryteria uwzględniają wielokrotność **w obrębie** przebiegu (Holm na 3 komórki), nie **między** przebiegami (7 spojrzeń poprzednika). Nie unieważnia T003 — kryteria są spójne i osiągalne — ale DSR wchodzi tam wyłącznie jako diagnostyka (ADR-017). Przyszłe prerejestracje deklarują deflację przed zamrożeniem |
 | ~~Purge + embargo nie istniały~~ | **ZBUDOWANE** 2026-09-24 w `src/validation/overlap.py`. CLAUDE.md wymaga ich „zawsze, nie gdy trzeba", a moduł miał dotąd wyłącznie **pomiar** nakładania, nie odcinanie. T003 ich nie używa (nic nie dzieli próby) — powstały pod T002 i pod cokolwiek, co będzie dopasowywać model |
 | ~~Checklista leakage'u była prozą~~ | **WYKONYWALNA** 2026-09-24 — `src/validation/leakage.py`, wpięta w runner T003 **przed** zapisaniem raportu. Pozycja niesprawdzalna kodem bez jawnej deklaracji = `FAIL` |
+| ~~Aparatura odpowiadała liczbami dla instrumentów, których nie zna~~ | **ODMAWIA** 2026-09-24 (ADR-018). `is_cross("DAX")` zwracało `True`, czyli podłogę „FX cross" 2,5 pipsa dla indeksu — backtest policzyłby się do końca. Teraz `UnknownInstrumentError` z instrukcją, co trzeba skalibrować |
 | ~~Dokumenty rozjeżdżały się z dyskiem po cichu~~ | **PILNOWANE TESTEM** 2026-09-24 — `tests/test_repo_invariants.py`. N, liczba testów, hash prerejestracji, numeracja ADR, cytowane `run_id` i wszystkie ścieżki są sprawdzane przy każdym `pytest`. CLAUDE.md mówił „każdą liczbę sprawdzać komendą"; teraz robi to pakiet |
 | ~~`build_bars.py` poza rejestrem~~ | **WPIĘTY** jako `kind=infra` — odcisk zbudowanych barów trafia do `trials.jsonl`, nie tylko do dokumentów. N bez zmian. Działa od następnej budowy; obecnego odcisku **nie wolno** dopisać wstecz do logu append-only |
 | **`pbo.py` nadal niewpięty** | PBO wymaga macierzy wariantów na podokresach; T003 nic nie dopasowuje, więc nie ma z czego jej zbudować. Należy do pierwszego eksperymentu z dopasowaniem (ADR-017) |
