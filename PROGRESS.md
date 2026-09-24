@@ -25,7 +25,7 @@ hipotezie, który spełnia wszystkie sześć warunków ADR-011. Nieuruchomiony.
 strategii w tym projekcie: **0**. M01–M06 to kontrole, nie liczą się do N.
 T003 doliczy **3** (N → 10), nie 6 jak T001.
 
-**Testy: 361.** **Oba warunki startu T003 zamknięte** (2026-09-24), runner
+**Testy: 379.** **Oba warunki startu T003 zamknięte** (2026-09-24), runner
 kompletny wobec prerejestracji (warstwa A i B, osie, diagnostyka par,
 `t003.md`, `observations.parquet`) i sprawdzony `--self-test`.
 **Następny krok: uruchomienie T003**, N: 7 → 10. Jedyny pozostały krok
@@ -123,6 +123,7 @@ założeniem niekonserwatywnym, wyglądającym na ostrożne.
 | **ADR-014** | `P_eff = 2,00` dla warstwy B (model implikowany przez **mechanizm H01**, nie ostrożność). **Geometria barier bez zmian** — zmiana warta ≤0,07 pp, kosztuje powtórzenie audytu mocy |
 | **ADR-015** | Kryteria falsyfikacji **wracają na warstwę A** — to przywrócenie ADR-003, nie przebudowa. Warstwa B = wycena, nie test. Siatka **3 komórki**, h=10d usunięty. N: 7 → 10 |
 | **ADR-016** | Marża swapu **nie wchodzi** do `CostModel` — jest osią, nie punktem. Pełny koszt składa się na wyniku symulacji; M06 potwierdził identyczność co do bitu. Warunek 6 spełniony |
+| **ADR-017** | DSR **wreszcie liczony** — `dsr.py` nie był importowany przez nic, mimo że ADR-004 prowadził licznik właśnie dla niego. `V[SR]` jako nawias. Dla T003 **diagnostyka**, nie kryterium; każda przyszła prerejestracja deklaruje deflację przed zamrożeniem |
 
 ---
 
@@ -154,6 +155,8 @@ transakcji) i nie unieważnia weryfikacji M01/M03/M04.
 | **Segment RESEARCH był oglądany** | 7 prób poprzednika na tych samych danych. Poprzeczka DSR startuje podwyższona (ADR-004) |
 | ~~Warstwa etykiet~~ | **ZBUDOWANA** 2026-09-24 |
 | ~~Swap nie wpięty~~ | **ZAMKNIĘTE** przez ADR-016 — wpięcie do `CostModel` odrzucone jako łamiące oś marży; pełny koszt składa się na wyniku symulacji |
+| **T003 nie deklaruje deflacji o próby odziedziczone** | Kryteria uwzględniają wielokrotność **w obrębie** przebiegu (Holm na 3 komórki), nie **między** przebiegami (7 spojrzeń poprzednika). Nie unieważnia T003 — kryteria są spójne i osiągalne — ale DSR wchodzi tam wyłącznie jako diagnostyka (ADR-017). Przyszłe prerejestracje deklarują deflację przed zamrożeniem |
+| **`pbo.py` nadal niewpięty** | PBO wymaga macierzy wariantów na podokresach; T003 nic nie dopasowuje, więc nie ma z czego jej zbudować. Należy do pierwszego eksperymentu z dopasowaniem (ADR-017) |
 | **Kubełki `vol_regime` nie były w prerejestracji** | Prerejestracja wymienia oś `vol_regime`, nie podając granic. Przyjęte **tercyle**, zadeklarowane w kodzie **przed** uruchomieniem T003 (`VOL_REGIME_EDGES`). Nie wchodzą do żadnego kryterium falsyfikacji — te liczą się na komórce, nie na kubełku |
 | **Martwa strefa przy k = 480** | +0,64 pp po korekcie Holma: efekt o trafności między 51,72% a 52,36% będzie realnie opłacalny, a pomiar zwróci `NOT_SUPPORTED`. **Zapisane w prerejestracji przed uruchomieniem**, nie do odkrycia po fakcie |
 | **Rentowności 2-letnie** `UNKNOWN` | Brak spójnej definicji dla wszystkich walut. Blokuje H04 |

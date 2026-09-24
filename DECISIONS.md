@@ -918,3 +918,83 @@ kompletny. Pominięcie ma wymagać skasowania kolumny, nie zapomnienia o niej.
   tym samym ziarnie, o godzinę dłużej, bez jednej nowej obserwacji.
 * Zero, wobec którego mierzy się warstwa B T003, to **−0,0422 R** (h = 3 d,
   marża 1%), nie −0,0297 R modelu niepełnego.
+
+---
+
+## ADR-017 — DSR wpięty jako diagnostyka z nawiasem `V[SR]`; deflacja deklarowana przed zamrożeniem
+
+**Status:** ACCEPTED · 2026-09-24 · **Wykonuje:** ADR-004 · **Wykryte w:**
+audycie modułów walidacji
+
+**Decyzja.** Trzy rzeczy:
+
+1. **DSR jest liczony** — `src/validation/deflation.py` wpina `dsr.py` w rejestr
+   prób. `N` pochodzi z `trials.jsonl`, nie z konfiguracji.
+2. **`V[SR]` jest nawiasem, nie punktem**, a raport podaje DSR na obu końcach.
+3. **Dla T003 deflacja jest DIAGNOSTYKĄ i nie zmienia werdyktu.** Dla każdej
+   przyszłej prerejestracji deflacja musi być zadeklarowana **przed**
+   zamrożeniem.
+
+**Powód — punkt 1.** ADR-004 ustanowił `N = 7` odziedziczonych prób
+z uzasadnieniem, że „poprzeczka DSR startuje podwyższona". Poprzeczka nie
+startowała wcale: `dsr.py` i `pbo.py` przyszły z portem (ADR-005) i do
+2026-09-24 **nie importował ich żaden moduł ani żaden skrypt**. Licznik był
+prawdziwy i pilnowany, a wielkość, dla której go prowadzono, nie była liczona.
+To jest ta sama klasa usterki co brak swapu w `CostModel` (M03): moduł
+istniał, miał testy i wyglądał na wpięty.
+
+**Powód — punkt 2.** `deflated_sharpe()` potrzebuje `V[SR]` — wariancji
+Sharpe'ów **między próbami**. Dla 7 prób odziedziczonych mamy liczbę, nie
+mamy ich Sharpe'ów (ADR-004 przeniósł licznik, nie wyniki). Wariancji nie da
+się więc zmierzyć, a podstawienie jednej liczby byłoby zgadywaniem przebranym
+za pomiar — dokładnie tym, co M02 wykrył przy σ. Stąd nawias, jak przy `P_eff`
+w ADR-014:
+
+| Koniec | Skąd | Kierunek błędu |
+|---|---|---|
+| dolny | rozrzut Sharpe'ów komórek faktycznie uruchomionych | **zaniża** — komórek jest mniej niż prób i są do siebie podobne |
+| górny | wariancja samego estymatora Sharpe'a (Lo 2002, z wyższymi momentami) | **zawyża** — traktuje szum estymacji jak rozrzut między próbami |
+
+Raportujemy oba i pytanie „czy wynik przeżywa **oba** końce".
+
+**Powód — punkt 3.** Kryteria falsyfikacji T003 zostały zamrożone
+(`sha256 c832dcdc…`) **przed** powstaniem tego modułu i mówią o korekcie Holma
+na trzy komórki, nie o deflacji o próby odziedziczone. Dopisanie deflacji do
+kryteriów po zamrożeniu byłoby zmianą prerejestracji, czyli nowym
+eksperymentem — niezależnie od tego, że zmiana idzie w stronę **surowszą**.
+
+Deflacja może wyłącznie **osłabić** odczyt wyniku pozytywnego, nigdy go
+wzmocnić, i w tę stronę wolno ją raportować obok werdyktu. Gdyby T003 wyszedł
+`SUPPORTED`, a DSR nie przeżywał obu końców nawiasu, raport ma to pokazać —
+i to jest cała różnica między „diagnostyka" a „nie liczymy tego".
+
+**Luka, którą to odsłania.** Prerejestracja T003 **nie deklaruje deflacji**,
+choć ADR-004 zapowiadał podwyższoną poprzeczkę. Nie unieważnia to T003:
+kryteria są wewnętrznie spójne, osiągalne (M05) i uwzględniają wielokrotność
+w obrębie przebiegu (Holm na 3 komórki). Nie uwzględniają wielokrotności
+**między przebiegami** — 7 spojrzeń poprzednika na ten sam segment. Stąd
+reguła ogólna: **każda przyszła prerejestracja deklaruje deflację przed
+zamrożeniem**, tak jak deklaruje model niezależności par i osiągalność progów.
+
+**Alternatywy.** (a) *Zmienić kryteria T003 i dołożyć deflację.* Odrzucone:
+zmiana po zamrożeniu to nowy eksperyment, a reguła nie ma wyjątku „gdy zmiana
+jest surowsza" — taki wyjątek jest furtką, bo surowość ocenia się po wyniku.
+(b) *Podstawić `V[SR]` z literatury.* Odrzucone: to nie jest wielkość
+uniwersalna, zależy od rodziny wariantów. (c) *Nie liczyć DSR, skoro warstwa
+A nie jest Sharpe'em.* Odrzucone: warstwa B **jest** serią zwrotów i to na
+niej stoi wycena; brak deflacji tam oznaczałby, że jedyna liczba nadająca się
+do decyzji ekonomicznej jest nieskorygowana o 10 spojrzeń.
+
+**Konsekwencje.**
+
+* DSR liczy się wyłącznie tam, gdzie uruchomiono warstwę B — czyli tam, gdzie
+  warstwa A pokazała sygnał (ADR-003). Przy wyniku zerowym nie ma Sharpe'a
+  i nie ma czego deflować.
+* `n_obs` do DSR to **liczba obserwacji efektywnych** z M05, nie liczba
+  wierszy. Przy nakładaniu ~99% ta druga zawyżyłaby statystykę o rząd
+  wielkości.
+* `pbo.py` nadal nie jest wpięty. PBO wymaga macierzy wyników wielu wariantów
+  na wielu podokresach, a T003 raportuje trzy komórki bez dopasowania modelu
+  — nie ma z czego jej zbudować. Wpięcie należy do pierwszego eksperymentu,
+  który będzie cokolwiek dopasowywał, i ma być zadeklarowane w jego
+  prerejestracji.

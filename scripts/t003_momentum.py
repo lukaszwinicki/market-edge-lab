@@ -325,6 +325,19 @@ def run_layer_b(obs: pl.DataFrame, feature_col: str, cfg: dict, pre: dict,
             "ci_low": boot.ci_low, "ci_high": boot.ci_high,
             "beats_zero": bool(boot.ci_low > 0),
         }
+
+    # Deflacja o liczbę prób (ADR-004, ADR-017). DIAGNOSTYKA — nie zmienia
+    # werdyktu, bo kryteria T003 zamrożono przed tym modułem. Może wyłącznie
+    # osłabić odczyt wyniku pozytywnego, nigdy go wzmocnić.
+    from src.validation.deflation import as_report, deflate, live_trial_count
+    n_eff = int(pre["layer_a"]["power"]["n_eff_measured"][feature_col.split("_")[1]])
+    try:
+        out["deflation"] = as_report(deflate(
+            played.get_column(net_column(margins[1])).to_numpy(),
+            live_trial_count(ROOT / "trials" / "trials.jsonl"),
+            n_obs=n_eff))
+    except ValueError as e:
+        out["deflation"] = {"binding": False, "error": str(e)}
     return out, played
 
 
@@ -459,6 +472,13 @@ def write_markdown(path: Path, report: dict, pre: dict) -> None:
             for m, e in lb["per_margin"].items():
                 L.append(f"  * marża {m}: expectancy **{e['expectancy_net_r']:+.4f} R** "
                          f"CI [{e['ci_low']:+.4f}, {e['ci_high']:+.4f}]")
+            d = lb.get("deflation") or {}
+            if "dsr_bracket" in d:
+                L.append(f"  * deflacja o **N = {d['n_trials']}** prób: DSR "
+                         f"{d['dsr_bracket'][1]:.3f}–{d['dsr_bracket'][0]:.3f} "
+                         f"(nawias `V[SR]`), przeżywa oba końce: "
+                         f"{'tak' if d['survives_both_ends'] else 'NIE'}. "
+                         f"Diagnostyka — nie zmienia werdyktu (ADR-017).")
     else:
         L += ["", "## Warstwa B — nieuruchomiona", "",
               "Warstwa A nie pokazała sygnału w żadnej komórce, więc pełny "
