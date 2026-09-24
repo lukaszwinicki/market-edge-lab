@@ -1293,3 +1293,43 @@ z gwarantowanym `NOT_SUPPORTED` kosztuje N i nic nie wyklucza — ADR-011.
 * Deklaracje z ADR-017 (deflacja) i ADR-019 (kontrola zachowująca
   autokorelację) nie zostały wykonane, bo nie powstała prerejestracja.
   Obowiązują następną.
+
+---
+
+## ADR-022 — Faza 0 zamknięta; osiągalność `FALSIFIED` liczona z geometrii cechy przed planem trialu
+
+**Status:** ACCEPTED · 2026-09-24 · **Raport:** `reports/phase0_closure.md`
+· **N bez zmian (10)**
+
+**Decyzja.** Dwie rzeczy:
+
+1. **Faza 0 jest zamknięta** z wynikiem: w rodzinie trend/momentum (H01, H02,
+   H07), na sześciu majorsach, 2016–2021, h = 3 d — brak dowodów na opłacalną
+   przewagę. Statusy hipotez bez zmian; raport rozróżnia wykluczenie (H01),
+   redundancję (H02) i nierozstrzygalność (H07).
+2. **Każda hipoteza, zanim dostanie plan trialu, przechodzi pomiar geometrii
+   cechy** (wzór M05/M08A, `control`, zero prób, bez zwrotów w przód):
+   liczba obserwacji, zależność w czasie i między parami, górna granica
+   n_eff. Jeżeli górna granica leży poniżej n_eff potrzebnego do
+   `FALSIFIED`, hipoteza nie dostaje prerejestracji.
+
+**Powód.** T001 (ADR-011) i T002 (ADR-021) zostały wycofane z tego samego
+powodu — `FALSIFIED` nieosiągalne — i w obu przypadkach dało się to policzyć
+z samej geometrii, zanim powstał plan eksperymentu. Dwa razy ta sama lekcja
+to wzorzec, nie przypadek. Szacunki robione „na oko" przed pomiarem były
+przy tym systematycznie optymistyczne (σ w M02, liczba zdarzeń w M08A).
+
+**Alternatywy.** (a) *Kontynuować bez zamykania fazy, od razu H04.*
+Odrzucone: wynik trzech hipotez trendowych zasługuje na zapis w jednym
+miejscu, zanim zmieni się rodzina mechanizmów — inaczej rozproszy się
+w logach. (b) *Reguła tylko jako zalecenie.* Odrzucone: konwencje w tym
+projekcie cztery razy okazały się niewykonywane (swap, DSR, checklista,
+purge); reguła wiąże jak ADR-011.
+
+**Konsekwencje.**
+
+* Następna faza, jeżeli powstanie, zaczyna od danych i pomiaru geometrii,
+  nie od prerejestracji. Kandydat: H04 (carry) — jedyny mechanizm spoza
+  rodziny trendowej.
+* Pomiar geometrii cechy hipotezy nieprerejestrowanej musi spełniać warunki
+  ADR-020.

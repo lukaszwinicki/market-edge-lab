@@ -33,6 +33,8 @@ do samego H07. **M08A zamknął T002 przed prerejestracją** (ADR-021): H07 ma
 wymaga **1 317**. N bez zmian.
 
 **Rejestr nie ma już hipotezy gotowej do trialu na obecnych danych.**
+**Faza 0 zamknięta** (ADR-022, `reports/phase0_closure.md`): brak dowodów na
+opłacalną przewagę w rodzinie trend/momentum.
 
 ---
 
@@ -143,6 +145,7 @@ założeniem niekonserwatywnym, wyglądającym na ostrożne.
 | **ADR-015** | Kryteria falsyfikacji **wracają na warstwę A** — to przywrócenie ADR-003, nie przebudowa. Warstwa B = wycena, nie test. Siatka **3 komórki**, h=10d usunięty. N: 7 → 10 |
 | **ADR-016** | Marża swapu **nie wchodzi** do `CostModel` — jest osią, nie punktem. Pełny koszt składa się na wyniku symulacji; M06 potwierdził identyczność co do bitu. Warunek 6 spełniony |
 | **ADR-017** | DSR **wreszcie liczony** — `dsr.py` nie był importowany przez nic, mimo że ADR-004 prowadził licznik właśnie dla niego. `V[SR]` jako nawias. Dla T003 **diagnostyka**, nie kryterium; każda przyszła prerejestracja deklaruje deflację przed zamrożeniem |
+| **ADR-022** | **Faza 0 zamknięta.** Każda hipoteza przechodzi pomiar geometrii cechy (zero prób) **przed** planem trialu |
 | **ADR-021** | T002 **nie startuje** — H07 (`N = 55`, `quiet = 55`, h = 3 d) nie ma mocy na `FALSIFIED` przy żadnym modelu zależności (M08A). Krok B audytu nieuruchomiony, bo nie mógł zmienić werdyktu. **N bez zmian** |
 | **ADR-018** | Kohorta replikacyjna **zostaje replikacyjną** — nie wchodzi do pomiaru odkrywczego, choćby podnosiła `P_eff`. Prostuje sprzeczną uwagę z ADR-015. Aparatura **odmawia** instrumentów nieskalibrowanych zamiast zwracać liczbę bez znaczenia |
 
@@ -156,7 +159,8 @@ założeniem niekonserwatywnym, wyglądającym na ostrożne.
 | ~~9~~ | ~~**T003 — uruchomienie**~~ | **ZAMKNIĘTY** 2026-09-24. H01 → `NOT_SUPPORTED`. N: 7 → 10 |
 | ~~10~~ | ~~**M07 — redundancja cech**~~ | **ZAMKNIĘTY** 2026-09-24. H02 → `CLOSED` (ρ = +0,832 z `mom_24`). Kontrola, N bez zmian |
 | ~~11~~ | ~~**T002 — prerejestracja, już tylko H07**~~ | **WYCOFANY** 2026-09-24 przed prerejestracją (ADR-021, M08A `20260924T200939Z-67315c`). N bez zmian |
-| **12** | **Decyzja o fazie** ← **TU JESTEŚMY** | Żadna hipoteza nie jest gotowa do trialu. Opcje: zamknięcie fazy; nowa definicja zdarzenia H07 z uzasadnieniem z mechanizmu (nowy ADR); praca nad danymi dla H04 |
+| ~~12~~ | ~~**Decyzja o fazie**~~ | **FAZA 0 ZAMKNIĘTA** 2026-09-24 — `reports/phase0_closure.md`, ADR-022 |
+| **13** | **H04 carry: dane stóp point-in-time + pomiar geometrii cechy (ADR-022)** ← **TU JESTEŚMY** | Zero prób. Prerejestracja wyłącznie, jeżeli górna granica n_eff pozwala na `FALSIFIED` |
 
 ### Co T003 zmienia w planie
 
