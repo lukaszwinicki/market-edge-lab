@@ -635,3 +635,210 @@ byłaby wyłącznie moją.
 zadziałała przeciwko zaleceniu z tego samego ADR-u — to jest zachowanie
 pożądane. Ramię „cecha vs cecha postarzona" pozostaje **warunkiem 5
 prerejestracji T003**, gdzie cecha i tak musi być policzona.
+
+---
+
+## ADR-014 — Model niezależności par dla warstwy B i geometria barier T003: P_eff = 2,00, geometria bez zmian
+
+**Status:** ACCEPTED · 2026-09-24 · **Rozstrzyga:** warunki 1 i 2
+prerejestracji T003 (ADR-011) · **Opiera się na:** M02, M04
+
+**Decyzja.** Dwie wartości, obie zamrożone przed prerejestracją T003:
+
+1. **Model niezależności par: `P_eff = 2,00`** — model na `|ρ|`
+   (`P² / ΣΣ|ρ_ij|`, zmierzony w M02). Dotyczy **warstwy B**, czyli każdej
+   statystyki uśredniającej wynik przemnożony przez znak cechy.
+2. **Geometria barier bez zmian**: SL/TP = 1,1 / 2,2 × `atr_d1_14` przy
+   h = 3 d, 2,0 / 4,0 przy h = 10 d — dokładnie ta, dla której M02 zmierzył σ,
+   a M03 i M04 skalibrowały przyrząd.
+
+**Powód — punkt 1.** Nawias [2,0; 6,0] rozstrzyga się na pytaniu, czy znak
+`mom_k` jest skorelowany z czynnikiem USD. Model ze znakiem (`P_eff = 4,76`)
+zakłada, że nie jest. **Mechanizm H01 zakłada, że jest**: informacja, która
+dyfunduje przez majorsy FX, to w przeważającej części dolar, a wtedy
+`mom(EURUSD) < 0` i `mom(USDCAD) > 0` są jednym zakładem, nie dwoma. Przy
+średniej `ρ` = 0,052 i średniej `|ρ|` = 0,401 to nie jest różnica niuansowa.
+
+Model na `|ρ|` nie jest więc pesymistycznym krańcem nawiasu — jest modelem
+**implikowanym przez testowaną hipotezę**. Wybranie 4,76 byłoby przyjęciem
+założenia sprzecznego z H01 po to, żeby H01 przeszło własną bramkę.
+
+Cena decyzji jest przy tym mniejsza, niż sugeruje czynnik 1,7 na MDE, bo
+wiążący jest próg trafności kierunku, nie sama liczba w R:
+
+| P_eff | MDE (h = 3 d) | Próg wykrywalności |
+|---|---|---|
+| 2,00 | 0,0795 R | 57,33% |
+| 4,76 | 0,0516 R | 55,35% |
+| 6,00 | 0,0459 R | 54,95% |
+
+Próg opłacalności to 51,72%. **Oba krańce nawiasu leżą poza pasmem, w którym
+może leżeć realna przewaga momentum** — nawias wart 1,7× na MDE jest wart zero
+na werdykcie. To przestaje być wyborem, który cokolwiek kupuje.
+
+**Powód — punkt 2.** M04 pokazał, że przy obecnej geometrii bariery
+rozstrzygają 16% przypadków, a średni |ruch| to 40% dystansu do TP. Nasuwa się
+wniosek, że geometrię trzeba zmienić. **Pomiar mówi, że nie warto.** Policzone
+na `runs/20260923T181510Z-963686/m04_paired_h3.parquet`, czyli bez nowego
+przebiegu: bariery obcinają σ i wzmocnienie `G = E[trafna] − E[nietrafna]`
+w tym samym tempie, więc iloraz `σ/G` — jedyna wielkość, która wchodzi do progu
+trafności — jest niezmiennikiem geometrii:
+
+| h = 3 d | G | σ | σ/G | Δ progu trafności |
+|---|---|---|---|---|
+| obecna geometria | 1,4205 | 0,9121 | 0,6421 | — |
+| **bariery usunięte w całości** | 1,6193 | 1,0528 | 0,6502 | **+0,07 pp** |
+| bariery usunięte, h = 10 d | 1,5977 | 1,0671 | 0,6679 | +0,20 pp |
+
+Cała zmiana geometrii — aż do jej zniesienia — jest warta **siódmą część
+punktu procentowego** trafności, i to na niekorzyść. Za to unieważnia σ z M02
+i kalibrację M03/M04 (zgodność 0,0007 R), czyli wymusza powtórzenie audytu
+mocy. Najgorszy możliwy stosunek kosztu do zysku.
+
+**Trzy argumenty dopinają punkt 2.**
+
+* **Wariant bez barier już jest w prerejestracji** — to target A (ADR-003).
+  Nie trzeba zmieniać geometrii, żeby go dostać; wchodzi tym samym przebiegiem.
+* **Geometria barier JEST warstwą ryzyka.** Strojenie jej pod wykrywalność to
+  dobór warstwy ryzyka tak, żeby test hipotezy przeszedł — dokładnie to, co
+  zakazuje ADR-002 i co w `market-quant` skasowało 98,6% próby.
+* M04 ustalił, że **straty na geometrii nie ma, jest bezczynność**. W pomiarze
+  na wszystkich barach (ADR-002) bezczynność nie kosztuje nic — nie ma
+  kapitału, który by stał.
+
+**Alternatywy.** (a) *`P_eff = 4,76`, bo nawias jest domknięty i punkt środkowy
+jest neutralny.* Odrzucone: nie jest neutralny, jest sprzeczny z mechanizmem
+H01, a jego jedyną obserwowalną konsekwencją byłoby przejście bramki.
+(b) *Zmierzyć znak cechy i domknąć nawias.* Odrzucone: to policzenie `mom_k`,
+zakazane przez ADR-012 do czasu zamrożenia T003. (c) *Rozluźnić bariery do
+3,0/6,0 × ATR, żeby przestały wiązać.* Odrzucone: pomiar wyżej pokazuje, że
+kraniec tego kierunku — brak barier — daje +0,07 pp. (d) *Zacieśnić bariery,
+żeby wiązały częściej.* Odrzucone bez pomiaru, świadomie: wymagałoby nowego
+przebiegu symulatora, a dwa zmierzone punkty odległe o 85% obcięcia ruchu dają
+`σ/G` różniące się o 1%. Gdyby zacieśnienie miało kiedyś wrócić, wraca jako
+osobny ADR z własnym pomiarem, nie jako poprawka do tego.
+
+**Konsekwencje.**
+
+* Warunek 2 prerejestracji T003 jest spełniony **bez nowego pomiaru σ** —
+  zadeklarowana geometria jest tą, dla której σ zmierzono.
+* Prerejestracja T003 raportuje **różnicę A − B jako pomiar tego, co bariery
+  kosztują**. Martwy parametr zamienia się w liczbę, zamiast zostać białą plamą.
+* Przebieg T003 raportuje **zrealizowane** `E[sign_i·sign_j·ρ_ij]` i wynikające
+  z niego P_eff jako diagnostykę, która **nie może zmienić werdyktu**.
+  Informuje następny eksperyment, nie ten.
+* `P_eff = 2,00` jest wyprowadzone dla statystyk mnożonych przez znak.
+  **Nie przenosi się automatycznie na warstwę A** — patrz ADR-015.
+
+---
+
+## ADR-015 — Kryteria falsyfikacji T003 wracają na warstwę A; warstwa B jest wyceną, nie testem
+
+**Status:** ACCEPTED · 2026-09-24 · **Przywraca:** ADR-003
+· **Koryguje:** konstrukcję odziedziczoną po T001 · **Rozstrzyga:** warunek 3
+prerejestracji T003 (ADR-011)
+
+**Decyzja.** Trzy rzeczy:
+
+1. **Kryteria falsyfikacji T003 stoją na warstwie A** — na relacji między
+   `mom_k` a zwrotem w przód znormalizowanym `atr_d1_14`. Metryka główna jest
+   statystyką tej relacji, nie expectancy w net R.
+2. **Warstwa B — net R z symulacji tickowej — jest raportowana zawsze**, ze
+   wszystkimi osiami i mnożnikami kosztu, ale jako **wycena ekonomiczna**,
+   nie jako instrument falsyfikacji. Uruchamiana zgodnie z ADR-003: pełny
+   przebieg B tylko tam, gdzie A pokazała sygnał.
+3. **Siatka T003 to 3 komórki, nie 6**: k ∈ {24, 120, 480} × h = **3 d**.
+   Horyzont 10 d wypada. N: 7 → **10**.
+
+**Powód — punkt 1. To nie jest przebudowa, to przywrócenie ADR-003.**
+ADR-003 przydzielił warstwom role jednoznacznie: A to *„Wykrywanie. Maksymalna
+moc"*, B to *„Decyzja"*, i zapisał wprost: *„Krok B uruchamiamy tylko wtedy,
+gdy krok A pokazał sygnał"* oraz *„jeśli warstwa A jest zerowa przy wysokiej
+mocy, warstwa B nie może być dodatnia i zatrzymujemy się tanio, nie spalając
+prób"*.
+
+Prerejestracja T001 postawiła **wszystkie** kryteria falsyfikacji na expectancy
+w net R, czyli na warstwie B. T003 odziedziczył to bez zmiany. To jest
+odwrócenie ADR-003 — a w razie sprzeczności wygrywa `DECISIONS.md`.
+
+**To odwrócenie JEST źródłem martwej strefy.** Nie geometria, nie model par:
+
+| h = 3 d, P_eff = 2,00 | próg wykrywalności | martwa strefa |
+|---|---|---|
+| warstwa B — expectancy w R (konstrukcja T001) | 57,33% | **5,61 pp** |
+| **warstwa A — relacja `mom_k` ↔ `fwd_atr`** | **≈ 52,8%** | **≈ 1,05 pp** |
+
+Mechanizm straty jest ten sam, który ADR-003 §2 zarzucił targetowi binarnemu —
+*„etykieta 0/1 wyrzuca informację o sile ruchu (…) statystycznie to strata mocy
+przy zerowym zysku"* — tyle że ADR-003 nie zauważył, że **expectancy po znaku
+ma tę samą wadę w połowie**: `sign(mom_k)` wyrzuca magnitudę cechy, a bariery
+i koszty wyrzucają magnitudę wyniku. Warstwa A zachowuje obie.
+
+**Kryteria stają się TRUDNIEJSZE do przejścia, nie łatwiejsze.** To jest
+zabezpieczenie, bez którego ta decyzja byłaby doborem kryterium pod wynik.
+Przy warstwie B `NOT_SUPPORTED` zapadało niezależnie od tego, czy efekt
+istnieje — był to wynik domyślny. Przy warstwie A `NOT_SUPPORTED` zaczyna
+wykluczać większość pasma, w którym przewaga momentum mogłaby realnie leżeć.
+Zmiana podnosi cenę wyniku negatywnego, zamiast ją obniżać.
+
+**Dopuszczalność.** T003 **nie jest prerejestrowany i nigdy nie ruszył**.
+Żaden przebieg nie dotknął `mom_k` (ADR-012 tego pilnuje, ADR-013 wymusił to
+przeciwko własnemu zaleceniu ADR-012). Nie oglądano więc niczego, co dotyczy
+H01 — to ten sam warunek, który ADR-011 postawił wycofaniu T001, i jest
+spełniony tak samo.
+
+**Powód — punkt 3.** Ustalenie 3 z M03: po doliczeniu swapu h = 10 d kosztuje
+na transakcję tyle samo co h = 3 d (0,0392 wobec 0,0422 R), dając 3× mniej
+obserwacji niezależnych. Przewaga kosztowa długiego horyzontu była artefaktem
+pominięcia swapu. Na warstwie A h = 10 d też nie ma szans: próg wykrywalności
+**55,07%** wobec 52,77% przy h = 3 d. Trzy komórki na gwarantowany
+`NOT_SUPPORTED` to spalenie trzech prób za zero informacji — dokładnie ten
+rachunek, który ADR-011 przeprowadził dla T001.
+
+**Czego ta decyzja NIE rozstrzyga.** `P_eff = 2,00` z ADR-014 było wyprowadzone
+dla statystyk mnożonych przez znak. Dla statystyki relacji zależność
+międzyparowa jest **inną wielkością**: pod H0 kowariancja estymatorów na parach
+`i` i `j` idzie jak iloczyn `ρ^cecha_ij · ρ^zwrot_ij`, a nie jak `|ρ^zwrot_ij|`.
+Przeliczone na macierzy z M02 daje to `P_eff` w przedziale **[2,00; 6,00]**
+z wartością oczekiwaną **3,08** przy `ρ^cecha = ρ^zwrot`. **M02 tego nie
+mierzył.** Przyjęcie 3,08 na oko byłoby powtórzeniem błędu, który M02 wykrył
+przy σ — odziedziczeniem liczby zamiast jej pomiaru, co kosztowało T001.
+
+Stąd **M05: pomiar rozkładu zerowego metryki głównej warstwy A** na
+rzeczywistej siatce decyzyjnej, cechami zastępczymi bez treści hipotezy
+(`kind = control`, `mom_k` nietknięty). Prerejestracja T003 nie może zostać
+zamrożona przed M05.
+
+M05 rozstrzyga też osiągalność `FALSIFIED`. Kryterium równoważności — CI95
+w całości wewnątrz ±ρ odpowiadającego progowi opłacalności — wymaga
+`n_eff ≈ 1 317`; przy `n_eff = 1 042` brakuje **12% na połowie CI**. To nie
+jest „strukturalnie nieosiągalne" jak w T001, tylko *blisko*: jeśli M05
+zmierzy dla warstwy A `n_eff` choćby 1,3× większe, `FALSIFIED` wraca do
+zasięgu i T003 odzyskuje pełną trójstanową przestrzeń wyników. Jeśli nie —
+prerejestracja **deklaruje to wprost**, a produktem T003 jest ograniczenie
+górne, nie werdykt trójstanowy.
+
+**Alternatywy.** (a) *Zostawić warstwę B jako test i uruchomić T003 na
+3 komórkach.* Odrzucone: ograniczenie „momentum daje mniej niż 57,3%
+trafności" nie wyklucza niczego, co ktokolwiek twierdził, a jego cena to trzy
+próby. Byłoby to też pierwsze złamanie reguły, którą ADR-011 ustanowił dzień
+wcześniej. (b) *Obniżyć próg `FALSIFIED` do osiągalnego przy warstwie B
+δ ≈ 0,06 R.* Odrzucone: oznaczałoby nazywanie realnej przewagi 53% trafności
+„falsyfikacją" — fałszywy negatyw przebrany za wniosek, gorszy niż
+`NOT_SUPPORTED`. (c) *Dołożyć segment OOS 2022–2023, żeby kupić n_eff.*
+Odrzucone: +33% `n_eff` to +0,8 pp na progu, za cenę jedynego segmentu
+zostawionego na walidację. Zły kurs. (d) *Porzucić H01.* Odrzucone: H01 nigdy
+nie było zmierzone osobno — `market-quant` mierzył je wyłącznie w koniunkcji
+z H02, na 172 obserwacjach efektywnych. Brak pomiaru to nie jest dowód.
+
+**Konsekwencje.**
+
+* Warunek 3 prerejestracji T003 przechodzi na M05; bez niego nie ma zamrożenia.
+* Warstwa B kosztuje **zero prób** w scenariuszu zerowym — tak, jak ADR-003
+  to zaprojektował („zatrzymujemy się tanio").
+* Ograniczenie najgłębsze **nie jest statystyczne**: sześć majorsów przy
+  średniej `|ρ|` = 0,401 to sześć odmian jednego zakładu o dolara, i stąd
+  `P_eff` bliskie 2, a nie 6. Jedyna dźwignia ruszająca to o czynnik to
+  instrumenty spoza czynnika USD — kohorta replikacyjna z ADR-008, która ma
+  zero bajtów. **Zdobycie tych danych kupuje H01 więcej mocy niż cokolwiek,
+  co da się zapisać w prerejestracji**, i przy okazji odblokowuje `SURVIVED`.
