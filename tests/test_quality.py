@@ -322,3 +322,101 @@ def test_truncated_series_is_reported_as_gaps_not_as_clean():
     assert eur["gap_pct"] > 40, f"obcięcie niewykryte: {eur['gap_pct']:.1f}%"
     gbp = rep.symbol_coverage.filter(pl.col("symbol") == "GBPUSD").row(0, named=True)
     assert gbp["gap_pct"] == pytest.approx(0.0)
+
+
+# --------------------------------------------------------------------------
+# split_holiday_closures — rozdział awarii od świąt
+# --------------------------------------------------------------------------
+# Ta funkcja rozstrzyga, czy pusta godzina u WSZYSTKICH par jest zamknięciem
+# rynku, czy awarią feedu. Pomyłka w jedną stronę ukrywa awarię i wpuszcza
+# skażone bary do próby; w drugą — zatrzymuje raport jakości na normalnym
+# świątecznym zamknięciu. ADR-010 przyjął jedną taką godzinę imiennie,
+# z dowodem, właśnie dlatego, że automat jej nie rozpoznał.
+
+from src.data.quality import (  # noqa: E402
+    MARKET_HOLIDAYS, MAX_HOLIDAY_RUN_HOURS, split_holiday_closures,
+)
+
+
+def _hrs(start: dt.datetime, n: int) -> list[dt.datetime]:
+    return [start + dt.timedelta(hours=i) for i in range(n)]
+
+
+def test_a_short_block_touching_christmas_is_a_holiday():
+    block = _hrs(dt.datetime(2019, 12, 25, 0, tzinfo=UTC), 4)
+    outages, holidays = split_holiday_closures(block)
+    assert outages == [] and holidays == block
+
+
+def test_a_block_on_an_ordinary_day_is_an_outage():
+    block = _hrs(dt.datetime(2019, 6, 12, 10, tzinfo=UTC), 3)
+    outages, holidays = split_holiday_closures(block)
+    assert outages == block and holidays == []
+
+
+def test_new_year_is_a_holiday_too():
+    block = _hrs(dt.datetime(2020, 1, 1, 0, tzinfo=UTC), 3)
+    assert split_holiday_closures(block)[1] == block
+
+
+def test_new_years_eve_evening_joins_the_new_year_block():
+    """Rynek zamyka się o 17:00 w Nowym Jorku, więc blok świąteczny zaczyna
+    się 31.12 wieczorem i przechodzi przez północ jako JEDEN ciąg."""
+    block = _hrs(dt.datetime(2019, 12, 31, 22, tzinfo=UTC), 5)
+    outages, holidays = split_holiday_closures(block)
+    assert outages == [] and holidays == block
+
+
+def test_a_block_too_long_to_be_a_holiday_is_an_outage():
+    """Świąteczne zamknięcie ma znaną długość. Dłuższy blok dotykający
+    świętem jest awarią, która akurat wypadła w święto — i ma być widoczna."""
+    block = _hrs(dt.datetime(2019, 12, 25, 0, tzinfo=UTC), MAX_HOLIDAY_RUN_HOURS + 1)
+    outages, holidays = split_holiday_closures(block)
+    assert holidays == [] and outages == block
+
+
+def test_separate_runs_are_judged_independently():
+    """Awaria w innym dniu nie ma się skleić ze świętem i przez nie zniknąć."""
+    holiday = _hrs(dt.datetime(2019, 12, 25, 0, tzinfo=UTC), 2)
+    outage = _hrs(dt.datetime(2019, 12, 27, 10, tzinfo=UTC), 2)
+    outages, holidays = split_holiday_closures(holiday + outage)
+    assert holidays == holiday
+    assert outages == outage
+
+
+def test_a_gap_splits_a_run_that_would_be_too_long_if_merged():
+    """Sedno podziału na ciągi: dwa bloki po 30 h wokół świąt to dwa
+    zamknięcia, a nie jedna 60-godzinna awaria. Gdyby ciągi sklejały się
+    przez dziurę, oba zostałyby uznane za awarię i raport stanąłby na
+    normalnym świątecznym zamknięciu."""
+    a = _hrs(dt.datetime(2019, 12, 25, 0, tzinfo=UTC), 20)    # 00:00-19:00
+    b = _hrs(dt.datetime(2019, 12, 25, 21, tzinfo=UTC), 20)   # 21:00-16:00 nast.
+    assert (b[0] - a[-1]) > dt.timedelta(hours=1)          # 20:00 obecne = przerwa
+    assert max(len(a), len(b)) <= MAX_HOLIDAY_RUN_HOURS    # osobno mieszczą się
+    merged_span = (b[-1] - a[0]).total_seconds() / 3600 + 1
+    assert merged_span > MAX_HOLIDAY_RUN_HOURS             # sklejone już nie
+    outages, holidays = split_holiday_closures(a + b)
+    assert outages == []
+    assert holidays == a + b
+
+
+def test_input_order_does_not_matter():
+    block = _hrs(dt.datetime(2019, 12, 25, 0, tzinfo=UTC), 3)
+    a = split_holiday_closures(block)
+    b = split_holiday_closures(list(reversed(block)))
+    assert a == b
+
+
+def test_empty_input_gives_two_empty_lists():
+    assert split_holiday_closures([]) == ([], [])
+
+
+def test_the_christmas_eve_hour_from_adr_010_is_not_auto_classified():
+    """ADR-010 przyjął `2023-12-24 22:00` IMIENNIE, z dowodem z rozmiarów
+    plików — bo 24.12 nie jest w `MARKET_HOLIDAYS` i automat go nie uznaje.
+    Gdyby kiedyś zaczął, akceptacja imienna stałaby się martwa, a detektor
+    cichszy niż zakłada ADR-010."""
+    assert (12, 24) not in MARKET_HOLIDAYS
+    hour = [dt.datetime(2023, 12, 24, 22, tzinfo=UTC)]
+    outages, holidays = split_holiday_closures(hour)
+    assert outages == hour and holidays == []

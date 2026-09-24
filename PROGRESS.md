@@ -25,7 +25,7 @@ hipotezie, który spełnia wszystkie sześć warunków ADR-011. Nieuruchomiony.
 strategii w tym projekcie: **0**. M01–M06 to kontrole, nie liczą się do N.
 T003 doliczy **3** (N → 10), nie 6 jak T001.
 
-**Testy: 402.** **Oba warunki startu T003 zamknięte** (2026-09-24), runner
+**Testy: 444.** **Oba warunki startu T003 zamknięte** (2026-09-24), runner
 kompletny wobec prerejestracji (warstwa A i B, osie, diagnostyka par,
 `t003.md`, `observations.parquet`) i sprawdzony `--self-test`.
 **Następny krok: uruchomienie T003**, N: 7 → 10. Jedyny pozostały krok
