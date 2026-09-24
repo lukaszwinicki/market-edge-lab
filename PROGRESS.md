@@ -25,7 +25,7 @@ hipotezie, który spełnia wszystkie sześć warunków ADR-011. Nieuruchomiony.
 strategii w tym projekcie: **0**. M01–M06 to kontrole, nie liczą się do N.
 T003 doliczy **3** (N → 10), nie 6 jak T001.
 
-**Testy: 379.** **Oba warunki startu T003 zamknięte** (2026-09-24), runner
+**Testy: 402.** **Oba warunki startu T003 zamknięte** (2026-09-24), runner
 kompletny wobec prerejestracji (warstwa A i B, osie, diagnostyka par,
 `t003.md`, `observations.parquet`) i sprawdzony `--self-test`.
 **Następny krok: uruchomienie T003**, N: 7 → 10. Jedyny pozostały krok
@@ -156,6 +156,7 @@ transakcji) i nie unieważnia weryfikacji M01/M03/M04.
 | ~~Warstwa etykiet~~ | **ZBUDOWANA** 2026-09-24 |
 | ~~Swap nie wpięty~~ | **ZAMKNIĘTE** przez ADR-016 — wpięcie do `CostModel` odrzucone jako łamiące oś marży; pełny koszt składa się na wyniku symulacji |
 | **T003 nie deklaruje deflacji o próby odziedziczone** | Kryteria uwzględniają wielokrotność **w obrębie** przebiegu (Holm na 3 komórki), nie **między** przebiegami (7 spojrzeń poprzednika). Nie unieważnia T003 — kryteria są spójne i osiągalne — ale DSR wchodzi tam wyłącznie jako diagnostyka (ADR-017). Przyszłe prerejestracje deklarują deflację przed zamrożeniem |
+| ~~Purge + embargo nie istniały~~ | **ZBUDOWANE** 2026-09-24 w `src/validation/overlap.py`. CLAUDE.md wymaga ich „zawsze, nie gdy trzeba", a moduł miał dotąd wyłącznie **pomiar** nakładania, nie odcinanie. T003 ich nie używa (nic nie dzieli próby) — powstały pod T002 i pod cokolwiek, co będzie dopasowywać model |
 | **`pbo.py` nadal niewpięty** | PBO wymaga macierzy wariantów na podokresach; T003 nic nie dopasowuje, więc nie ma z czego jej zbudować. Należy do pierwszego eksperymentu z dopasowaniem (ADR-017) |
 | **Kubełki `vol_regime` nie były w prerejestracji** | Prerejestracja wymienia oś `vol_regime`, nie podając granic. Przyjęte **tercyle**, zadeklarowane w kodzie **przed** uruchomieniem T003 (`VOL_REGIME_EDGES`). Nie wchodzą do żadnego kryterium falsyfikacji — te liczą się na komórce, nie na kubełku |
 | **Martwa strefa przy k = 480** | +0,64 pp po korekcie Holma: efekt o trafności między 51,72% a 52,36% będzie realnie opłacalny, a pomiar zwróci `NOT_SUPPORTED`. **Zapisane w prerejestracji przed uruchomieniem**, nie do odkrycia po fakcie |
