@@ -20,6 +20,7 @@ przebieg nie zamieni się po cichu w niepełny wynik badawczy.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import datetime as dt
 import json
 import logging
@@ -188,6 +189,10 @@ def _guard_sealed(cfg: dict, years: set[int] | None, allow: bool) -> set[int] | 
 
 
 def main() -> int:
+    return _main()
+
+
+def _main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--cohort", default="discovery",
@@ -202,7 +207,7 @@ def main() -> int:
     ap.add_argument("--no-report", action="store_true")
     ap.add_argument("--report-only", action="store_true",
                     help="nie przebudowuj barów, tylko przelicz raport jakości "
-                         "z partycji na dysku (np. po zmianie listy z ADR-045)")
+                         "z partycji na dysku (np. po zmianie listy z ADR-010)")
     ap.add_argument("--allow-sealed", action="store_true",
                     help="zbuduj rowniez lata zapieczetowane — TYLKO w fazie "
                          "koncowej walidacji, za swiadoma decyzja")
@@ -244,12 +249,19 @@ def main() -> int:
         log.error("Brak barów — czy cache jest pusty (albo partycje nie zbudowane)?")
         return 1
 
+    # Budowa danych JEST przebiegiem i ma zostawić ślad w rejestrze — kategoria
+    # `infra` istnieje dokładnie po to (registry: „przebiegi techniczne bez
+    # oceny wyniku"). Bez wpisu odcisk zbudowanych danych żyje wyłącznie
+    # w dokumentach, a te starzeją się szybciej niż dysk. N bez zmian.
+    _log_to_registry(args, symbols, h1_by_symbol)
+
     if args.no_report:
         return 0
 
     report = build_report(h1_by_symbol)
-    # ADR-045: lista ręcznie zaakceptowanych godzin awarii. Raport drukuje ją
-    # razem z dowodem, więc odstępstwo od werdyktu detektora jest widoczne.
+    # ADR-010: lista ręcznie zaakceptowanych godzin awarii, zamknięta
+    # i imienna. Raport drukuje ją razem z dowodem, więc odstępstwo od
+    # werdyktu detektora jest widoczne, a nie schowane w konfiguracji.
     accepted = accepted_outages_from(cfg)
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(render_markdown(report, accepted), encoding="utf-8")
@@ -260,6 +272,35 @@ def main() -> int:
     for r in reasons:
         log.warning("  %s", r)
     return 0
+
+
+def _log_to_registry(args, symbols, h1_by_symbol) -> None:
+    """Wpis `infra` w `trials.jsonl` z odciskiem tego, co zbudowano.
+
+    Nie liczy się do N (tylko `strategy` się liczy), ale odtwarza łańcuch:
+    które partycje, z jakiego cache'u, jakim kodem. Odcisk zawartości liczymy
+    z liczby barów per symbol, nie z plików — pliki bywają przebudowane
+    bajt w bajt z tych samych ticków, a to jest ta sama dana.
+    """
+    from src.harness.registry import start_run
+
+    fingerprint = hashlib.sha256(
+        json.dumps({s: df.height for s, df in sorted(h1_by_symbol.items())},
+                   sort_keys=True).encode()).hexdigest()
+    params = {
+        "cohort": args.cohort,
+        "symbols": sorted(symbols),
+        "years": sorted(args.years) if args.years else "wszystkie dostępne",
+        "out": str(args.out),
+        "allow_sealed": bool(args.allow_sealed),
+        "bars_per_symbol": {s: df.height for s, df in sorted(h1_by_symbol.items())},
+        "bars_fingerprint_sha256": fingerprint,
+    }
+    with start_run("build_bars — budowa świec z ticków", params, kind="infra") as run:
+        run.record(n_symbols=len(h1_by_symbol),
+                   n_bars_total=sum(df.height for df in h1_by_symbol.values()),
+                   bars_fingerprint_sha256=fingerprint)
+    log.info("Rejestr: wpis `infra`, odcisk barów %s…", fingerprint[:12])
 
 
 if __name__ == "__main__":

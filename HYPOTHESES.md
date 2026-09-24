@@ -117,11 +117,11 @@ Komórka k = 480 jest najsłabsza i to ona wyznacza, co T003 potrafi wykluczyć.
 | **Typ** | Confirmatory |
 | **Mechanizm** | **Naruszenie parytetu stóp procentowych (UIP).** Waluty o wyższej stopie nie deprecjonują się tyle, ile implikuje różnica stóp; premia jest wynagrodzeniem za ryzyko gwałtownego odwrócenia. Najmocniejszy prior ekonomiczny w całym rejestrze |
 | **Predykcja** | Różnica rentowności 2-letnich ma dodatnią relację z przyszłym zwrotem pary |
-| **Problem — dane** | `UNKNOWN`. Rentowności 2-letnie nie są dostępne w jednej spójnej definicji dla wszystkich walut koszyka — `market-quant` zszedł na `interbank_3m` i zawęził uniwersum (ADR-038 tamtego repo, `reports/yield2y_sources.md`). Wymaga własnej pracy nad danymi point-in-time |
+| **Problem — dane** | `UNKNOWN`. Rentowności 2-letnie nie są dostępne w jednej spójnej definicji dla wszystkich walut koszyka — `market-quant` zszedł na `interbank_3m` i zawęził uniwersum (ADR-038 **tamtego repo**, `market-quant:reports/yield2y_sources.md` — ścieżka w `market-quant`, nie u nas). Wymaga własnej pracy nad danymi point-in-time |
 | **Problem — horyzont** | Mechanizm działa na skali miesięcy, a operacyjna preferencja projektu to 2–3 dni. To napięcie trzeba rozstrzygnąć **w protokole, przed testem**, a nie tłumaczyć nim wynik po fakcie |
 | **Kryteria falsyfikacji** | Do ustalenia w prerejestracji trialu |
 | **Origin** | Prerejestracja projektu |
-| **Następny krok** | Po T001/T002. Najpierw praca nad danymi, potem prerejestracja |
+| **Następny krok** | Po T003/T002 (T001 `WITHDRAWN`, ADR-011). Najpierw praca nad danymi point-in-time, potem prerejestracja |
 
 ---
 
