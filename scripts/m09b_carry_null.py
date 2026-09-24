@@ -53,6 +53,7 @@ Zero przyrządu: cecha iid per wiersz musi dać SE ≈ 1/√n.
 
 from __future__ import annotations
 
+import argparse
 import datetime as dt
 import json
 import sys
@@ -246,18 +247,32 @@ def decision_numbers(se: float) -> dict:
 # Przebieg
 # --------------------------------------------------------------------------
 
-def load_params() -> tuple[dict, dict, list[str]]:
-    rep = json.loads((ROOT / "runs" / M09A_RUN / "m09a_report.json").read_text(encoding="utf-8"))
-    g = rep["kinds"][KIND]
+def load_params(source_run: str = M09A_RUN, kind: str = KIND) -> tuple[dict, dict, list[str]]:
+    rep = json.loads((ROOT / "runs" / source_run / "m09a_report.json").read_text(encoding="utf-8"))
+    g = rep["kinds"][kind]
     assert list(g["currency"]["per_currency"]) == CURRENCIES
     return g["currency"], g["pairs"], rep["params"]["symbols"]
 
 
-def main() -> int:
+def cli(argv=None) -> argparse.Namespace:
+    """Źródło geometrii. Domyślne = OECD z M09A (odtwarza przebieg
+    `…202826Z-a64090`); `--source-run <M12> --kind policy --first-month
+    2016-01-01 --lag 0` = stopy polityki (ADR-025)."""
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--source-run", default=M09A_RUN)
+    ap.add_argument("--kind", default=KIND)
+    ap.add_argument("--first-month", default=FIRST_MONTH.isoformat())
+    ap.add_argument("--lag", type=int, default=LAG_MONTHS)
+    return ap.parse_args(argv)
+
+
+def main(argv=None) -> int:
+    args = cli(argv)
+    first_month = dt.date.fromisoformat(args.first_month)
     cfg = yaml.safe_load((ROOT / "configs" / "base.yaml").read_text(encoding="utf-8"))
     symbols = list(cfg["instruments"]["discovery"])
     require_fresh_bars(symbols, WARMUP_START, RESEARCH_END, cfg)
-    g, pairs_a, sym_a = load_params()
+    g, pairs_a, sym_a = load_params(args.source_run, args.kind)
     assert sym_a == symbols
     target_w = pairs_a["within_pair_sd_rms"]
     target_b = pairs_a["between_pair_sd_of_means"]
@@ -272,7 +287,8 @@ def main() -> int:
     params = {
         "adr": "ADR-022, ADR-019",
         "feature_source": "surogat — stopy NIE sa czytane; parametry z M09A",
-        "m09a_run": M09A_RUN, "kind": KIND, "lag_months": LAG_MONTHS,
+        "m09a_run": args.source_run, "kind": args.kind, "lag_months": args.lag,
+        "first_month": args.first_month,
         "h_business_days": H, "models": list(MODELS), "n_reps": N_REPS,
         "n_paths_boot": N_PATHS_BOOT, "boot_reps": BOOT_REPS,
         "block_days": block_days, "seed": SEED,
@@ -286,7 +302,8 @@ def main() -> int:
         "primary_statistic": "spearman(carry, fwd_atr), rangi srednie, pooled, primary",
     }
     with start_run("M09B rozklad zerowy statystyki carry H04, surogat skalibrowany, "
-                   "dwa SE (ADR-022, ADR-019)", params, kind="control") as run:
+                   f"dwa SE (ADR-022, ADR-019) [cecha: {args.kind}]", params,
+                   kind="control") as run:
         rng = np.random.default_rng(SEED)
         start_h, end_h = session_hours(cfg)
         fwd_parts, mon_parts, sym_parts, ts_parts = [], [], [], []
@@ -300,7 +317,7 @@ def main() -> int:
                                 start_h, end_h)
             df = df.filter(pl.col("fwd_atr").is_not_null() & pl.col("fwd_atr").is_not_nan())
             fwd_parts.append(df.get_column("fwd_atr").to_numpy())
-            mon_parts.append(month_index(df.get_column("ts_decision"), FIRST_MONTH, LAG_MONTHS))
+            mon_parts.append(month_index(df.get_column("ts_decision"), first_month, args.lag))
             sym_parts.append(np.full(df.height, j))
             ts_parts.append(df.get_column("ts_decision"))
             print(f"  {sym}: {df.height} decyzji")

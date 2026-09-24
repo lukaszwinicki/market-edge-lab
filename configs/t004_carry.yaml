@@ -37,15 +37,22 @@ sample:
   windows_crossing_segment_end: {policy: "drop"}
 
 feature:
-  name: "carry_pit"
-  formula: "r_overnight(base) − r_overnight(quote), punkty procentowe"
-  source: "ALFRED, vintage co poniedziałek (scripts/fetch_rates_pit.py)"
-  series: "OECD IRSTCI01 (ADR-023); interbank_3m UNKNOWN"
+  name: "carry_policy"
+  formula: "stopa_polityki(base) − stopa_polityki(quote), punkty procentowe"
+  definition: "stopa polityki sterująca rynkiem overnight (ADR-025)"
+  sources:
+    USD: "FRED DFEDTARU/DFEDTARL — środek przedziału"
+    EUR: "FRED ECBDFR — stopa depozytowa"
+    GBP: "BoE IADB IUDBEDR — Bank Rate"
+    CAD: "BoC Valet V39079"
+    AUD: "tabela ręczna RBA (src/data/policy_rates.py), zweryfikowana w M12"
+    JPY: "tabela ręczna BoJ, zweryfikowana w M12"
+  verification: "M12 — każda waluta wobec OECD overnight, 0 podejrzanych miesięcy"
   availability: >
-    Wartość najnowszego miesiąca w ostatnim vintage opublikowanym co
-    najmniej 1 dzień roboczy przed decyzją (`pit_last_value`). Wartość
-    taka, jaka była opublikowana, nie zrewidowana.
-  missing: "brak vintage przed decyzją -> wiersz odpada, liczony w raporcie"
+    Wartość z dnia ≤ decyzja − 1 dzień roboczy (`policy_pit`). Stopa
+    polityki nie jest rewidowana i nie ma opóźnienia publikacji.
+  missing: "brak wartości -> wiersz odpada, liczony w raporcie (M12: 0 dni)"
+  replaces: "OECD overnight z ALFRED — EUR bez PIT w 2016–2017 (ADR-025)"
 
 grid:
   horizons_business_days: [3]
@@ -59,29 +66,32 @@ grid:
 
 layer_a:
   target: "fwd_atr = (cena wyjścia − cena odniesienia) / atr_d1_14"
-  primary_statistic: "spearman(carry_pit, fwd_atr), rangi średnie, pooled po parach"
+  primary_statistic: "spearman(carry_policy, fwd_atr), rangi średnie, pooled po parach"
   statistic_choice_rationale: >
     Jak w T003 (kurtoza fwd_atr). Rangi ŚREDNIE, bo cecha miesięczna ma
     masowe remisy — rangi z argsort rozstrzygałyby je kolejnością wierszy.
   ci:
-    method: "block_bootstrap_by_day"   # ADR-024 — M10: 2,5× stabilniejszy od null
-    block_days: 20
+    method: "rozklad_zerowy_surogatu"   # ADR-026 — reguła M10 wskazała null, nie bootstrap
+    formula: "rho_hat ± 1,96 · SE_null"
+    se_null: "400 replikacji surogatu skalibrowanego jak M09B (M12 → M09B policy)"
     level: 0.95
+    reported_alongside: "block bootstrap po dniach, 20 dni — bez wpływu na werdykt"
     consistency_check:
       rule: >
-        SE bootstrapu na danych prawdziwych w [0,75; 1,33] × prawdziwe SD
-        ze świata syntetycznego M10 (0,02442–0,02607).
+        SE_null ORAZ SE_boot na danych prawdziwych w [0,5; 2,0] × prawdziwe SD
+        ze świata syntetycznego M10 (0,02472–0,02542).
       on_failure: "STOP — przyrząd nie mierzy tego, co zmierzył M10"
-      m10_run: "20260924T203841Z-ad7ab7"
+      m10_run: "20260924T213436Z-7a92ef"
   power:
-    source: "M10 — prawdziwe SD, najgorszy wariant (RW / gauss)"
-    n_eff: 1472
-    half_ci_over_rho_be: 0.95
-    mde_acc_pct_before_deflation: 52.33
-    dead_zone_pp_before_deflation: 0.61
+    source: "M10 na stopach polityki — prawdziwe SD, najgorszy wariant (AR(1) / gauss)"
+    n_eff: 1547
+    half_ci_over_rho_be: 0.92
+    mde_acc_pct_before_deflation: 52.27
+    dead_zone_pp_before_deflation: 0.55
     runtime_risk: >
-      Jeżeli SE bootstrapu na danych prawdziwych > 0,02756, FALSIFIED jest
-      nieosiągalne w samym przebiegu — wynik NOT_SUPPORTED z ograniczeniem.
+      SE_null ma cv ≈ 0,33. P(SE_null > 0,02756) ≈ 41% — wtedy FALSIFIED jest
+      nieosiągalne w samym przebiegu i wynik może być wyłącznie SUPPORTED
+      albo NOT_SUPPORTED z górnym ograniczeniem (ADR-026).
 
 falsification:
   layer: "A"
@@ -100,12 +110,14 @@ falsification:
 random_control:
   # ADR-019: kontrola musi zachowywać autokorelację cechy.
   method: >
-    Surogat carry skalibrowany jak w M09B (geometria z M09A), cecha
+    Surogat carry skalibrowany jak w M09B (geometria z M12), cecha
     losowana, zwroty prawdziwe. NIE permutacja wierszy.
-  consistency_with_ci: "NIE jako reguła 1,5× — ADR-024; kontrola raportowana obok CI"
+  identity_with_ci: >
+    Ten sam surogat daje CI (ADR-026), więc „kontrola pobita" jest tożsama
+    z CI > 0 i nie jest liczona podwójnie.
 
 control_aged_feature:
-  arm: "carry_pit z vintage o tydzień wcześniejszego niż dopuszczalny"
+  arm: "carry_policy z marginesem 6 dni roboczych zamiast 1 (wartość o tydzień starsza)"
   criterion: "rho_aged − rho_true < 2·SE(różnicy)"
 
 layer_b:

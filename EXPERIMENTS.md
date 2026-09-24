@@ -27,6 +27,7 @@ Uruchomionych prób strategii w tym projekcie: **3**.
 | M09 | — | `CLOSED` | **PRZECHODZI z zastrzeżeniem** — H04 carry: n_eff 1 870–2 344, `FALSIFIED` osiągalne; rozkład zerowy i bootstrap rozjeżdżają się 1,7× (ADR-019 otwarty) | ADR-023 |
 | M10 | — | `CLOSED` | **ROZSTRZYGA** — przy cesze trwałej oba SE średnio poprawne; bootstrap 2,5× stabilniejszy. Prawdziwe n_eff H04 = 1 472, `FALSIFIED` osiągalne (0,95) | ADR-024: CI = bootstrap |
 | M11 | — | `CLOSED` | **BLOKUJE** — EUR nie ma wartości point-in-time w 2016–2017 (seria OECD zamrożona na 2013-12 do stycznia 2018); 527 dni bez cechy | ADR-025: T004 wstrzymany do wyboru źródła stóp |
+| M12 | — | `CLOSED` | **PRZECHODZI** — stopy polityki 6 walut zweryfikowane wobec OECD (0 podejrzanych miesięcy); M09B i M10 powtórzone: n_eff 1 547, `FALSIFIED` osiągalne (0,92); reguła M10 wskazuje CI z rozkładu zerowego | ADR-026 |
 | T002 | H07 | `WITHDRAWN` | **nieuruchomiony, bez prerejestracji** — `FALSIFIED` nieosiągalne przy każdym modelu zależności (M08A) | ADR-021 |
 | T003 | H01 | `CLOSED` | **`NOT_SUPPORTED`** — relacja nieodróżnialna od zera we wszystkich 3 komórkach; górne ograniczenie **51,03%** trafności | H01 → `NOT_SUPPORTED`; ADR-019 |
 
@@ -618,6 +619,37 @@ Geometria w tolerancji, ale porównana wyłącznie na latach 2018–2021.
 
 Nie zestawił cechy z żadnym zwrotem. Nie wybrał źródła zastępczego dla
 EUR — to decyzja (ADR-025).
+
+---
+
+## M12 — Cecha H04 ze stóp polityki: źródła, geometria, moc · `CLOSED` · **PRZECHODZI**
+
+**Cel.** Wykonać ADR-025 (b): cecha point-in-time z konstrukcji, sprawdzona
+niezależnym źródłem, z powtórzonym M09B i M10. Zero prób. Szczegóły:
+**ADR-026**.
+
+| Przebieg | Co |
+|---|---|
+| `fetch_policy_rates` (`infra`) | FRED (USD, EUR), BoE (GBP), BoC (CAD); AUD i JPY z tabeli ręcznej |
+| `20260924T212921Z-b1fcdc` | **M12** — weryfikacja źródeł i geometria |
+| `20260924T213027Z-47327e` | M09B na nowej cesze — kalibracja OK |
+| `20260924T213436Z-7a92ef` | M10 na nowej cesze — prawdziwe SD i pokrycie |
+
+### Wynik
+
+Źródła: każda waluta wobec OECD overnight — średnia |różnica| 0,001–0,055 pp,
+0 miesięcy podejrzanych. Geometria: zmienność 0,62, rozrzut 0,82.
+
+| | n_eff (prawdziwe SD) | iloraz `FALSIFIED` | MDE | CI |
+|---|---|---|---|---|
+| najgorszy wariant (AR(1) / gauss) | **1 547** | **0,92** | 52,27% | **rozkład zerowy** — bootstrap pokrycie 0,85 < 0,90 |
+
+**Ryzyko przebiegu:** ~41% szans, że SE_null w T004 przekroczy 0,02756
+i `FALSIFIED` stanie się nieosiągalne.
+
+### Czego M12 nie zrobił
+
+Nie zestawił cechy z żadnym zwrotem. Nie ustalił horyzontu ani deflacji.
 
 ---
 

@@ -33,6 +33,7 @@ carry w obu modelach trwałości, skalibrowany w M09B.
 
 from __future__ import annotations
 
+import argparse
 import datetime as dt
 import json
 import sys
@@ -108,10 +109,11 @@ def decision_rows(ts: np.ndarray) -> np.ndarray:
     return idx[idx + H_HOURS < ts.size]
 
 
-def month_of(ts: np.ndarray) -> np.ndarray:
+def month_of(ts: np.ndarray, first_month: dt.date = FIRST_MONTH,
+             lag: int = LAG_MONTHS) -> np.ndarray:
     m = ts.astype("datetime64[M]").astype(np.int64)           # miesiące od 1970
-    first = (FIRST_MONTH.year - 1970) * 12 + FIRST_MONTH.month - 1
-    return m - first - LAG_MONTHS
+    first = (first_month.year - 1970) * 12 + first_month.month - 1
+    return m - first - lag
 
 
 def simulate_fwd(rng: np.random.Generator, n_hours: int, chol: np.ndarray,
@@ -155,21 +157,37 @@ def estimator_verdict(true_sd: float, se_est: np.ndarray, stats: np.ndarray) -> 
 # Przebieg
 # --------------------------------------------------------------------------
 
-def load_inputs():
+def load_inputs(m09a_run: str = M09A_RUN, m09b_run: str = M09B_RUN,
+                kind: str = "overnight"):
     m05 = json.loads((ROOT / "runs" / M05_RUN / "m05_report.json").read_text(encoding="utf-8"))
     r = m05["horizons"]["3"]
     order = r["symbols"]
     rho_sorted = np.asarray(r["rho_matrix"])
     perm = [order.index(s) for s in SYMBOLS]
     rho = rho_sorted[np.ix_(perm, perm)]
-    a = json.loads((ROOT / "runs" / M09A_RUN / "m09a_report.json").read_text(encoding="utf-8"))
-    g = a["kinds"]["overnight"]["currency"]
-    b = json.loads((ROOT / "runs" / M09B_RUN / "m09b_report.json").read_text(encoding="utf-8"))
+    a = json.loads((ROOT / "runs" / m09a_run / "m09a_report.json").read_text(encoding="utf-8"))
+    g = a["kinds"][kind]["currency"]
+    b = json.loads((ROOT / "runs" / m09b_run / "m09b_report.json").read_text(encoding="utf-8"))
     return rho, g, {m: b["models"][m]["calibration"] for m in FEATURE_MODELS}
 
 
-def main() -> int:
-    rho, g, calib = load_inputs()
+def cli(argv=None) -> argparse.Namespace:
+    """Domyślne odtwarzają przebieg `…203841Z-ad7ab7` (OECD). Stopy polityki:
+    `--m09a-run <M12> --m09b-run <M09B policy> --kind policy
+    --first-month 2016-01-01 --lag 0`."""
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--m09a-run", default=M09A_RUN)
+    ap.add_argument("--m09b-run", default=M09B_RUN)
+    ap.add_argument("--kind", default="overnight")
+    ap.add_argument("--first-month", default=FIRST_MONTH.isoformat())
+    ap.add_argument("--lag", type=int, default=LAG_MONTHS)
+    return ap.parse_args(argv)
+
+
+def main(argv=None) -> int:
+    args = cli(argv)
+    first_month = dt.date.fromisoformat(args.first_month)
+    rho, g, calib = load_inputs(args.m09a_run, args.m09b_run, args.kind)
     chol_ret = psd_chol(rho)
     phi_meas = np.array([g["per_currency"][c]["phi"] for c in CURRENCIES])
     sigma = np.array([g["per_currency"][c]["sigma_innov"] for c in CURRENCIES])
@@ -179,7 +197,7 @@ def main() -> int:
 
     ts_h, _ = time_axis()
     rows = decision_rows(ts_h)
-    mon_rows = month_of(ts_h[rows])
+    mon_rows = month_of(ts_h[rows], first_month, args.lag)
     assert mon_rows.min() >= 0
     n_months = int(mon_rows.max()) + 1
     p = len(SYMBOLS)
@@ -191,7 +209,9 @@ def main() -> int:
     params = {
         "adr": "ADR-023, ADR-019",
         "data": "WYLACZNIE syntetyczne — zadne bary, ticki ani stopy",
-        "inputs": {"m05_run": M05_RUN, "m09a_run": M09A_RUN, "m09b_run": M09B_RUN},
+        "inputs": {"m05_run": M05_RUN, "m09a_run": args.m09a_run,
+                   "m09b_run": args.m09b_run},
+        "kind": args.kind, "first_month": args.first_month, "lag_months": args.lag,
         "n_rows": int(rows.size * p), "n_months": n_months,
         "feature_models": list(FEATURE_MODELS), "return_models": list(RETURN_MODELS),
         "n_worlds_true": N_WORLDS_TRUE, "n_worlds_est": N_WORLDS_EST,
@@ -199,8 +219,8 @@ def main() -> int:
         "var_ratio_tol": list(VAR_RATIO_TOL), "coverage_min": COVERAGE_MIN,
         "criterion_set_before_run": True,
     }
-    with start_run("M10 pokrycie SE przy cesze trwalej, swiat syntetyczny (ADR-023, ADR-019)",
-                   params, kind="control") as run:
+    with start_run("M10 pokrycie SE przy cesze trwalej, swiat syntetyczny (ADR-023, ADR-019) "
+                   f"[cecha: {args.kind}]", params, kind="control") as run:
         rng = np.random.default_rng(SEED)
         report: dict = {"params": params, "variants": {}}
 

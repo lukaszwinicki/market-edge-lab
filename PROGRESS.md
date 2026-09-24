@@ -27,7 +27,7 @@ Seria kontrolna M01–M06 zamknięta; aparatura ma sprawdzone zero (M03),
 wzmocnienie (M04), rozkład zerowy metryki głównej (M05) i zero pełnego modelu
 kosztu (M06).
 
-**Testy: 660.** **M07 zamknął H02** bez ani jednej próby — T002 zwęża się
+**Testy: 679.** **M07 zamknął H02** bez ani jednej próby — T002 zwęża się
 do samego H07. **M08A zamknął T002 przed prerejestracją** (ADR-021): H07 ma
 **726** zdarzeń na siatce primary, górna granica n_eff **843**, a `FALSIFIED`
 wymaga **1 317**. N bez zmian.
@@ -145,6 +145,7 @@ założeniem niekonserwatywnym, wyglądającym na ostrożne.
 | **ADR-015** | Kryteria falsyfikacji **wracają na warstwę A** — to przywrócenie ADR-003, nie przebudowa. Warstwa B = wycena, nie test. Siatka **3 komórki**, h=10d usunięty. N: 7 → 10 |
 | **ADR-016** | Marża swapu **nie wchodzi** do `CostModel` — jest osią, nie punktem. Pełny koszt składa się na wyniku symulacji; M06 potwierdził identyczność co do bitu. Warunek 6 spełniony |
 | **ADR-017** | DSR **wreszcie liczony** — `dsr.py` nie był importowany przez nic, mimo że ADR-004 prowadził licznik właśnie dla niego. `V[SR]` jako nawias. Dla T003 **diagnostyka**, nie kryterium; każda przyszła prerejestracja deklaruje deflację przed zamrożeniem |
+| **ADR-026** | Cecha H04 = stopy polityki (zweryfikowane). **CI T004 z rozkładu zerowego** — reguła M10 odrzuciła bootstrap (pokrycie 0,85). n_eff 1 547; ~41% ryzyka, że `FALSIFIED` będzie nieosiągalne w samym przebiegu |
 | **ADR-025** | EUR nie istniał point-in-time w 2016–2017 w serii OECD. **T004 wstrzymany** do wyboru źródła stóp; rekomendacja: dzienne stopy polityki pieniężnej |
 | **ADR-024** | CI dla cechy trwałej = bootstrap; reguła 1,5× z ADR-019 nie dotyczy cech trwałych; moc H04 z prawdziwego SD: n_eff **1 472**, iloraz 0,95 |
 | **ADR-023** | H04: cecha = różnica stóp `overnight`; bieżący vintage tylko do geometrii. Bramka przekroczona, ale **prerejestracja wstrzymana** do rozstrzygnięcia rozjazdu SE 1,7× (ADR-019) |
@@ -166,8 +167,8 @@ założeniem niekonserwatywnym, wyglądającym na ostrożne.
 | ~~13~~ | ~~**H04 carry: pomiar geometrii cechy (ADR-022)**~~ | **M09 PRZECHODZI** 2026-09-24 — n_eff 1 870–2 344, `FALSIFIED` osiągalne (ADR-023). N bez zmian |
 | ~~14~~ | ~~**M10 — pokrycie SE**~~ | **ROZSTRZYGA** 2026-09-24 — CI = bootstrap, n_eff wiążące 1 472 (ADR-024) |
 | ~~15~~ | ~~**Dane point-in-time z ALFRED + M11**~~ | **BLOKUJE** 2026-09-24 — EUR bez PIT w 2016–2017 (ADR-025) |
-| **15a** | **Decyzja o źródle stóp** ← **TU JESTEŚMY** | ADR-025: (a) odrzucić EUR 2016–2017 albo (b) dzienne stopy polityki z oficjalnych decyzji (rekomendacja) |
-| 16 | Prerejestracja H04 | Po 14 i 15. Deflacja (ADR-017), kontrola zachowująca autokorelację (ADR-019), rozstrzygnięcie napięcia horyzontu |
+| ~~15a~~ | ~~**Źródło stóp**~~ | **(b) WYKONANE** 2026-09-24 — stopy polityki, M12 + M09B + M10: n_eff 1 547, CI z rozkładu zerowego (ADR-026) |
+| **16** | **Decyzje przed zamrożeniem T004** ← **TU JESTEŚMY** | Horyzont, deflacja (ADR-017), człon różnicy stóp w warstwie B. Uruchomienie: N 10 → 11, wymaga zgody |
 
 ### Co T003 zmienia w planie
 

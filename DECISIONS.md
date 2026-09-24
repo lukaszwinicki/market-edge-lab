@@ -1542,3 +1542,84 @@ konstrukcją, a nie odtwarzany z vintage.
   oficjalnych (każda pozycja z datą, godziną ogłoszenia UTC i źródłem),
   testami na znanych zmianach i powtórzeniem M09A/M09B/M10 — wszystko jako
   `control`/`infra`, N bez zmian.
+
+---
+
+## ADR-026 — Cecha H04 = stopy polityki pieniężnej; CI T004 z rozkładu zerowego, bo tak wskazała reguła M10
+
+**Status:** ACCEPTED · 2026-09-24 · **Wykonuje:** ADR-025 opcja (b) · **Zmienia
+dla T004:** ADR-024 pkt 1 (metoda CI) · **Przebiegi:** `fetch_policy_rates`
+(`infra`), M12 `20260924T212921Z-b1fcdc`, M09B `20260924T213027Z-47327e`,
+M10 `20260924T213436Z-7a92ef` — wszystkie `control`/`infra`, **N bez zmian (10)**
+
+**Decyzja.**
+
+1. **Cecha H04 = różnica stóp polityki sterujących rynkiem overnight**
+   (Fed — środek przedziału, EBC — DFR, BoE — Bank Rate, BoC — target,
+   RBA — cash rate target, BoJ — stopa od salda polityki). AUD i JPY
+   z tabeli ręcznej w `src/data/policy_rates.py` — RBA blokuje pobieranie
+   skryptem, BoJ nie ma prostego CSV.
+2. **T004 liczy CI z rozkładu zerowego** (surogat skalibrowany, cecha
+   losowana, zwroty prawdziwe): `ρ̂ ± 1,96·SE_null`. Bootstrap raportowany
+   obok, bez wpływu na werdykt.
+3. **Moc wiążąca:** n_eff **1 547**, iloraz `FALSIFIED` **0,92**, MDE
+   **52,27%** przed deflacją.
+
+**Dowód — źródła (`FACT`, M12).** Każda waluta wobec OECD overnight
+(niezależne źródło, średnie miesięczne, 72 miesiące): średnia |różnica|
+0,001–0,055 pp, maksimum ≤ 0,097 pp, **zero miesięcy podejrzanych**
+(kryterium: > 0,20 pp, dopuszczalne ≤ 2 na walutę). Tabela RBA zgadza się
+z OECD co do **0,001 pp** średnio. Zero dni bez wartości. Geometria:
+zmienność w czasie 0,62 (M09A 0,65), rozrzut między parami 0,82 (0,81).
+
+**Dowód — metoda CI (`FACT`, M10).** Reguła zadeklarowana przed przebiegiem
+(średnia wariancja / prawdziwa ∈ [0,80; 1,25] i pokrycie ≥ 0,90 we
+wszystkich czterech wariantach):
+
+| Wariant | Prawdziwe SD | n_eff | null: SE/prawda · pokrycie | bootstrap: SE/prawda · pokrycie |
+|---|---|---|---|---|
+| AR(1) / gauss | 0,02542 | **1 547** | 1,01 · 0,93 | 0,97 · **0,85** |
+| AR(1) / stochvol | 0,02472 | 1 636 | 0,98 · 0,97 | 0,98 · 0,95 |
+| RW / gauss | 0,02522 | 1 572 | 0,99 · 0,97 | 0,92 · 0,95 |
+| RW / stochvol | 0,02513 | 1 583 | 0,99 · 0,97 | 0,96 · 0,95 |
+
+Bootstrap nie przechodzi w jednym wariancie → reguła wybiera rozkład
+zerowy. **Stosujemy regułę, nie nadpisujemy jej** — ADR-024 wybrał bootstrap
+dla cechy OECD tą samą regułą; dla cechy, którą zmierzy T004, reguła
+wskazuje drugą metodę.
+
+Wynik jest spójny między przebiegami: w ośmiu wariantach obu M10 (320
+światów) pokrycie wynosi średnio **0,96** dla rozkładu zerowego i **0,93**
+dla bootstrapu. `INFERENCE`: rozkład zerowy jest warunkowy na zrealizowanych
+zwrotach, więc rośnie tam, gdzie zrealizowane dryfy par są duże — czyli
+dokładnie tam, gdzie trwała cecha produkuje fałszywą korelację (problem
+regresora trwałego). Bootstrap bloków 20-dniowych tego członu nie widzi.
+Jego większa stabilność (cv 0,13 wobec 0,35) jest więc stabilnością wokół
+wartości zbyt optymistycznej w części realizacji.
+
+**Ryzyko przebiegu — zapisane przed prerejestracją.** `FALSIFIED` wymaga
+SE < 0,02756. Przy prawdziwym SD 0,02542 i cv estymatora 0,33
+prawdopodobieństwo, że SE_null w samym przebiegu przekroczy próg, wynosi
+**~41%** (dla bootstrapu byłoby ~20%). Wtedy T004 może zakończyć się
+wyłącznie `SUPPORTED` albo `NOT_SUPPORTED` z górnym ograniczeniem. To jest
+cena poprawnego pokrycia i musi być znana, zanim zapali się próba.
+
+**Alternatywy.** (a) *Zostać przy bootstrapie z ADR-024, bo daje mniejsze
+ryzyko.* Odrzucone: to jest wybór przyrządu po zobaczeniu, który daje
+wygodniejszy wynik — dokładnie to, co reguła zadeklarowana przed M10 miała
+wykluczyć. (b) *Większe z dwóch SE.* Odrzucone: średnio zawyża SE, więc
+ryzyko nieosiągalności `FALSIFIED` rośnie powyżej 41% bez zysku na
+pokryciu. (c) *Więcej światów w M10, żeby rozstrzygnąć 0,85 wobec 0,90.*
+Odrzucone: powtarzanie pomiaru do momentu, aż przejdzie, jest tym samym
+błędem, tylko wolniejszym.
+
+**Konsekwencje.**
+
+* Szkic T004 deklaruje: CI z rozkładu zerowego; bootstrap obok; sprawdzenie
+  krzyżowe — oba SE w [0,5; 2,0] × prawdziwe SD z M10, poza tym STOP
+  (szerokie, bo cv estymatora 0,33).
+* Kontrola zachowująca autokorelację (ADR-019) jest w T004 tym samym
+  surogatem co CI — warunek „kontrola pobita" jest więc tożsamy z CI > 0
+  i nie jest liczony podwójnie.
+* Przed zamrożeniem nadal otwarte: horyzont, forma deflacji (ADR-017),
+  człon różnicy stóp w wycenie warstwy B.
