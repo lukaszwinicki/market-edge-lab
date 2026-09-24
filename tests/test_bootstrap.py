@@ -102,3 +102,107 @@ def test_reproducible_with_seed():
 def test_too_short_sample_is_rejected():
     with pytest.raises(ValueError):
         block_bootstrap_expectancy(trades([[1.0], [2.0]] * 10), block_days=20)
+
+
+# --------------------------------------------------------------------------
+# Bootstrap dowolnej statystyki (dla Spearmana warstwy A, T003)
+# --------------------------------------------------------------------------
+
+from src.validation.bootstrap import (  # noqa: E402
+    block_bootstrap_statistic, day_row_groups,
+)
+
+
+def _hourly(n_days: int, per_day: int) -> pl.Series:
+    out = []
+    d = D0
+    while len(out) < n_days * per_day:
+        if d.weekday() < 5:
+            out += [d + dt.timedelta(hours=h) for h in range(per_day)]
+        d += dt.timedelta(days=1)
+    return pl.Series(out[:n_days * per_day])
+
+
+def _rank(a):
+    o = a.argsort()
+    r = np.empty_like(o, dtype=float)
+    r[o] = np.arange(a.size)
+    return r
+
+
+def _spearman_of(x, y):
+    def stat(idx):
+        a, b = _rank(x[idx]), _rank(y[idx])
+        a, b = a - a.mean(), b - b.mean()
+        den = np.sqrt((a * a).sum() * (b * b).sum())
+        return float((a * b).sum() / den) if den > 0 else np.nan
+    return stat
+
+
+def test_day_row_groups_partitions_every_row_exactly_once():
+    ts = _hourly(50, 8)
+    days, order, starts = day_row_groups(ts)
+    assert starts[0] == 0 and starts[-1] == ts.len()
+    assert sorted(order.tolist()) == list(range(ts.len()))
+    assert len(days) == 50
+
+
+def test_day_row_groups_keeps_each_day_contiguous():
+    ts = _hourly(30, 4)
+    days, order, starts = day_row_groups(ts)
+    for j in range(len(days)):
+        rows = order[starts[j]:starts[j + 1]]
+        assert len(rows) == 4
+
+
+def test_statistic_bootstrap_point_estimate_is_the_full_sample():
+    rng = np.random.default_rng(1)
+    ts = _hourly(120, 6)
+    x, y = rng.standard_normal(ts.len()), rng.standard_normal(ts.len())
+    stat = _spearman_of(x, y)
+    res = block_bootstrap_statistic(ts, stat, n_reps=200, seed=0)
+    assert res.expectancy == pytest.approx(stat(np.arange(ts.len())))
+
+
+def test_independent_rows_give_se_near_one_over_sqrt_n():
+    """Kalibracja: bez zależności wewnątrz dnia SE ma siadać koło 1/sqrt(n)."""
+    rng = np.random.default_rng(2)
+    ts = _hourly(300, 6)
+    n = ts.len()
+    x, y = rng.standard_normal(n), rng.standard_normal(n)
+    res = block_bootstrap_statistic(ts, _spearman_of(x, y), n_reps=400, seed=0)
+    assert res.se * np.sqrt(n) == pytest.approx(1.0, abs=0.35)
+
+
+def test_within_day_dependence_widens_the_interval():
+    """Wiersze powielone w obrębie dnia nie dokładają informacji.
+
+    Ta sama para (x, y) powtórzona 6 razy dziennie daje 6x więcej wierszy
+    i tę samą treść. Bootstrap po dniach MUSI to zobaczyć: SE nie ma prawa
+    spaść jak 1/sqrt(6).
+    """
+    rng = np.random.default_rng(3)
+    n_days, per_day = 300, 6
+    ts = _hourly(n_days, per_day)
+    base_x, base_y = rng.standard_normal(n_days), rng.standard_normal(n_days)
+    x = np.repeat(base_x, per_day)
+    y = np.repeat(base_y, per_day)
+    res = block_bootstrap_statistic(ts, _spearman_of(x, y), n_reps=400, seed=0)
+    naive = 1 / np.sqrt(n_days * per_day)
+    assert res.se > 2.0 * naive
+
+
+def test_statistic_bootstrap_rejects_too_few_days():
+    ts = _hourly(10, 4)
+    x = np.arange(ts.len(), dtype=float)
+    with pytest.raises(ValueError, match="za mało"):
+        block_bootstrap_statistic(ts, _spearman_of(x, x), block_days=20, n_reps=10)
+
+
+def test_statistic_bootstrap_is_deterministic_given_the_seed():
+    rng = np.random.default_rng(4)
+    ts = _hourly(120, 4)
+    x, y = rng.standard_normal(ts.len()), rng.standard_normal(ts.len())
+    a = block_bootstrap_statistic(ts, _spearman_of(x, y), n_reps=100, seed=7)
+    b = block_bootstrap_statistic(ts, _spearman_of(x, y), n_reps=100, seed=7)
+    assert (a.se, a.ci_low, a.ci_high) == (b.se, b.ci_low, b.ci_high)

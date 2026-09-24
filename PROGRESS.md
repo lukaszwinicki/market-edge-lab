@@ -25,8 +25,9 @@ hipotezie, który spełnia wszystkie sześć warunków ADR-011. Nieuruchomiony.
 strategii w tym projekcie: **0**. M01–M06 to kontrole, nie liczą się do N.
 T003 doliczy **3** (N → 10), nie 6 jak T001.
 
-**Testy: 327.** **Oba warunki startu T003 zamknięte** (2026-09-24).
-**Następny krok: uruchomienie T003**, N: 7 → 10. To jedyny pozostały krok
+**Testy: 351.** **Oba warunki startu T003 zamknięte** (2026-09-24), runner
+napisany i sprawdzony na danych syntetycznych (`--self-test`).
+**Następny krok: uruchomienie T003**, N: 7 → 10. Jedyny pozostały krok
 i jedyny, który zapala próby.
 
 ---
@@ -132,7 +133,7 @@ założeniem niekonserwatywnym, wyglądającym na ostrożne.
 | ~~6~~ | ~~**Prerejestracja T003**~~ | **ZAMROŻONA** 2026-09-24, `sha256 c832dcdc…` |
 | ~~7~~ | ~~**Warstwa etykiet**~~ | **GOTOWA** — `src/research/labels.py`, bez treści hipotezy w module |
 | ~~8~~ | ~~**Pełny koszt z finansowaniem**~~ | **GOTOWY** — ADR-016 + M06. Swap NIE wchodzi do `CostModel` |
-| **9** | **T003 — uruchomienie** ← **TU JESTEŚMY** | **N: 7 → 10.** Pierwsza próba zapalona w tym projekcie |
+| **9** | **T003 — uruchomienie** ← **TU JESTEŚMY** | **N: 7 → 10.** Pierwsza próba zapalona w tym projekcie. `scripts/t003_momentum.py` gotowy; `--self-test` przechodzi, licznika nie rusza |
 | 10 | **T002** — H07 zdarzenie vs H02 stan, redundancja z H01 | Prerejestracja po zamknięciu T003 |
 
 **Dlaczego swap nie trafił do `CostModel`** (ADR-016). Marża jest **osią**,
@@ -163,7 +164,12 @@ transakcji) i nie unieważnia weryfikacji M01/M03/M04.
 ## Czego NIE robimy
 
 - **Nie zmieniamy `configs/t003_momentum.yaml`.** Po zamrożeniu każda zmiana
-  to nowy eksperyment z nowym ID, nie poprawka T003.
+  to nowy eksperyment z nowym ID, nie poprawka T003. Runner sprawdza hash
+  i odmawia startu **przed** wpisem do rejestru.
+- **Nie ma trybu „próbnego na prawdziwych danych".** Przebieg, który policzył
+  statystykę warstwy A na segmencie RESEARCH i został przerwany, JEST próbą —
+  zobaczył wynik. Sprawdzanie maszynerii idzie przez `--self-test`
+  na danych syntetycznych.
 - **Nie dotykamy `mom_k` żadnym przebiegiem poza T003** (ADR-012).
 - Nie dodajemy ML — dopóki nie wiadomo, czy istnieje prosty efekt.
 - Nie mnożymy hipotez, żeby uniknąć wyniku negatywnego.

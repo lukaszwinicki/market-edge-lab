@@ -141,3 +141,59 @@ def block_bootstrap_expectancy(trades: pl.DataFrame, block_days: int = 20,
         ci_low=float(lo_ci), ci_high=float(hi_ci),
         n_trades=int(counts.sum()), n_days=d, n_reps=len(stats),
     )
+
+
+def day_row_groups(ts: pl.Series) -> tuple[list[dt.date], np.ndarray, np.ndarray]:
+    """Wiersze pogrupowane po dniu roboczym, w postaci płaskiej.
+
+    Zwraca (oś dni, `order`, `starts`), gdzie `order` to indeksy wierszy
+    posortowane po dniu, a `starts` ma `len(days)+1` pozycji i wyznacza
+    zakresy. Postać płaska, bo bootstrap losuje dni dziesięć tysięcy razy
+    i lista tablic byłaby wąskim gardłem.
+    """
+    day = business_day(ts)
+    codes = day.to_frame("d").with_row_index("i").sort("d")
+    days = codes["d"].unique(maintain_order=True).to_list()
+    order = codes["i"].to_numpy()
+    counts = codes.group_by("d", maintain_order=True).len()["len"].to_numpy()
+    starts = np.zeros(len(days) + 1, dtype=np.int64)
+    np.cumsum(counts, out=starts[1:])
+    return days, order, starts
+
+
+def block_bootstrap_statistic(ts: pl.Series, stat_fn, block_days: int = 20,
+                              n_reps: int = 10_000, seed: int = 0,
+                              ) -> BootstrapResult:
+    """Block bootstrap DOWOLNEJ statystyki, nie tylko średniej.
+
+    `block_bootstrap_expectancy` sumuje po dniach, bo średnia jest liniowa —
+    dla statystyki rangowej (Spearman) to nie działa: rangi liczą się na całej
+    przepróbkowanej próbie, a nie sumują się po dniach. Tu więc losujemy bloki
+    dni, sklejamy ICH WIERSZE i liczymy statystykę od nowa na każdej replikacji.
+
+    `stat_fn(idx)` dostaje indeksy wierszy oryginalnej ramki i zwraca liczbę.
+    Jednostka bloku jest ta sama co wszędzie: dzień roboczy, bo transakcje
+    z sąsiednich dni dzielą okno wynikowe.
+    """
+    days, order, starts = day_row_groups(ts)
+    d = len(days)
+    if d < 2 * block_days:
+        raise ValueError(f"{d} dni to za mało na bloki po {block_days}")
+
+    rng = np.random.default_rng(seed)
+    idx_days = block_indices(d, block_days, n_reps, rng)
+    stats = np.empty(n_reps)
+    for rep in range(n_reps):
+        picked = idx_days[rep]
+        rows = np.concatenate([order[starts[j]:starts[j + 1]] for j in picked])
+        stats[rep] = stat_fn(rows)
+
+    stats = stats[~np.isnan(stats)]
+    point = float(stat_fn(np.arange(ts.len())))
+    se = float(stats.std(ddof=1))
+    lo_ci, hi_ci = np.percentile(stats, [2.5, 97.5])
+    return BootstrapResult(
+        expectancy=point, se=se, t_stat=point / se if se > 0 else float("nan"),
+        ci_low=float(lo_ci), ci_high=float(hi_ci),
+        n_trades=int(ts.len()), n_days=d, n_reps=len(stats),
+    )
