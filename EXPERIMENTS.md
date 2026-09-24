@@ -28,6 +28,7 @@ Uruchomionych prób strategii w tym projekcie: **3**.
 | M10 | — | `CLOSED` | **ROZSTRZYGA** — przy cesze trwałej oba SE średnio poprawne; bootstrap 2,5× stabilniejszy. Prawdziwe n_eff H04 = 1 472, `FALSIFIED` osiągalne (0,95) | ADR-024: CI = bootstrap |
 | M11 | — | `CLOSED` | **BLOKUJE** — EUR nie ma wartości point-in-time w 2016–2017 (seria OECD zamrożona na 2013-12 do stycznia 2018); 527 dni bez cechy | ADR-025: T004 wstrzymany do wyboru źródła stóp |
 | M12 | — | `CLOSED` | **PRZECHODZI** — stopy polityki 6 walut zweryfikowane wobec OECD (0 podejrzanych miesięcy); M09B i M10 powtórzone: n_eff 1 547, `FALSIFIED` osiągalne (0,92); reguła M10 wskazuje CI z rozkładu zerowego | ADR-026 |
+| M13 | — | `CLOSED` | **BLOKUJE** — CI z rozkładu zerowego ma sufit mocy ~0,3 (moc 0,24 przy ρ = 0,12); bootstrap 0,98 | ADR-027: T004 niezamrożony |
 | T002 | H07 | `WITHDRAWN` | **nieuruchomiony, bez prerejestracji** — `FALSIFIED` nieosiągalne przy każdym modelu zależności (M08A) | ADR-021 |
 | T003 | H01 | `CLOSED` | **`NOT_SUPPORTED`** — relacja nieodróżnialna od zera we wszystkich 3 komórkach; górne ograniczenie **51,03%** trafności | H01 → `NOT_SUPPORTED`; ADR-019 |
 
@@ -650,6 +651,32 @@ i `FALSIFIED` stanie się nieosiągalne.
 ### Czego M12 nie zrobił
 
 Nie zestawił cechy z żadnym zwrotem. Nie ustalił horyzontu ani deflacji.
+
+---
+
+## M13 — Moc testu T004 pod hipotezą alternatywną · `CLOSED` · **BLOKUJE**
+
+**Cel.** Self-test runnera T004 nie odzyskał zasianego efektu — SE z rozkładu
+zerowego urosło z 0,014 do 0,088. Zmierzyć moc wprost, zanim prerejestracja
+zostanie zamrożona. **Wyłącznie dane syntetyczne.** Szczegóły: **ADR-027**.
+
+### Wynik (2026-09-25) · `20260924T215452Z-2744d2` · `control`, N bez zmian
+
+| ρ | trafność | moc — CI z null | moc — bootstrap |
+|---|---|---|---|
+| 0 | 50,00% | 0,00 | 0,00 |
+| 0,054 | 51,72% | 0,02 | 0,28 |
+| 0,08 | 52,55% | 0,14 | 0,42 |
+| 0,12 | 53,83% | **0,24** | 0,98 |
+| 0,18 | 55,76% | 0,28 | 1,00 |
+
+Bramka (moc ≥ 0,50 przy ρ = 0,12): **niespełniona**. SE_null rośnie razem
+z efektem — test nasyca się niezależnie od siły relacji.
+
+### Czego M13 nie zrobił
+
+Nie dotknął danych prawdziwych. Nie wybrał nowej metody CI — to decyzja
+(ADR-027).
 
 ---
 

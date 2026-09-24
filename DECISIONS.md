@@ -1623,3 +1623,70 @@ błędem, tylko wolniejszym.
   i nie jest liczony podwójnie.
 * Przed zamrożeniem nadal otwarte: horyzont, forma deflacji (ADR-017),
   człon różnicy stóp w wycenie warstwy B.
+
+---
+
+## ADR-027 — T004 nie zostaje zamrożony: CI z rozkładu zerowego ma sufit mocy ~0,3
+
+**Status:** ACCEPTED · 2026-09-25 · **Przebieg:** M13 `20260924T215452Z-2744d2`
+(`control`, wyłącznie dane syntetyczne) · **Unieważnia dla T004:** ADR-026
+pkt 2 (metoda CI) i liczbę „wykrywalność 52,98%" · **N bez zmian (10)**
+
+**Decyzja.** Prerejestracja T004 **nie zostaje zamrożona** w postaci
+z ADR-026. Szkic `configs/t004_carry.yaml` ma wszystkie sekcje
+`frozen: false`, runner `scripts/t004_carry.py` odmawia startu (hash
+`PENDING`). Metoda CI dla cechy trwałej wraca do rozstrzygnięcia — tym razem
+z kryterium obejmującym **pokrycie pod H0 i moc pod H1 jednocześnie**.
+
+**Dowód (`FACT`, M13).** Świat syntetyczny jak w M10, cecha skalibrowana
+na stopach polityki, efekt zasiany o znanym ρ, 50 światów na punkt. Reguła
+zadeklarowana przed przebiegiem: moc przy ρ = 0,12 (≈ 53,8% trafności)
+≥ 0,50, inaczej T004 nie jest zamrażany.
+
+| ρ | trafność | SE null (mediana) | moc — CI z null | moc — bootstrap | P(`FALSIFIED`) |
+|---|---|---|---|---|---|
+| 0 | 50,00% | 0,0209 | 0,00 | 0,00 | 0,42 |
+| 0,03 | 50,96% | 0,0253 | 0,04 | 0,16 | 0,26 |
+| 0,054 | 51,72% | 0,0339 | 0,02 | 0,28 | 0,06 |
+| 0,08 | 52,55% | 0,0354 | 0,14 | 0,42 | 0,02 |
+| 0,12 | 53,83% | 0,0567 | **0,24** | 0,98 | 0,00 |
+| 0,18 | 55,76% | 0,0766 | **0,28** | 1,00 | 0,00 |
+
+**Bramka: niespełniona** (0,24 < 0,50). Empiryczne MDE80 dla CI z null:
+**nie istnieje na siatce** — moc nie dochodzi do 0,80 przy żadnym efekcie.
+
+**Mechanizm (`INFERENCE`, zgodny z pomiarem).** Rozkład zerowy jest
+warunkowy na zwrotach. Pod H1 zwroty niosą trwały składnik proporcjonalny
+do cechy; każda losowa cecha trwała koreluje z nim tym mocniej, im większy
+efekt. SE_null rośnie więc razem z ρ (0,021 → 0,077) i statystyka
+`ρ̂ / SE_null` się nasyca. Przy cesze o kilku niezależnych epizodach
+w sześć lat test tej konstrukcji nie odróżnia efektu od przypadkowego dryfu
+— z definicji, nie z braku danych. Bootstrap warunkuje na ścieżce cechy
+i tego sufitu nie ma (SE_boot ≈ 0,024 niezależnie od ρ).
+
+**Szósty błąd optymistyczny — pierwszy złapany PRZED zamrożeniem.**
+„Wykrywalność 52,98%" była policzona z SE pod H0, jak MDE w M05. Dla cechy
+ergodycznej to poprawne; dla trwałej — nie. Złapał to self-test runnera,
+który miał wymagać odzyskania zasianego efektu i nie odzyskał.
+
+**Dlaczego nie przełączamy od razu na bootstrap.** Bootstrap odpadł
+w M10 na pokryciu pod H0 (0,85 w jednym wariancie; średnio 0,93 wobec 0,96
+dla null). Przełączenie teraz, po zobaczeniu mocy, na metodę odrzuconą
+regułą byłoby wyborem przyrządu pod wygodę — nawet jeżeli M13 niczego nie
+mówi o H04. Uczciwa droga to **nowy pomiar z nową regułą** na świeżych
+światach (nowy seed), nie reinterpretacja starych.
+
+**Alternatywy — DO DECYZJI.**
+
+| Opcja | Co | Koszt / ryzyko |
+|---|---|---|
+| (a) **Bootstrap skalibrowany** | SE_boot × κ, gdzie κ wyznaczone na świecie syntetycznym tak, by pokrycie pod H0 = 0,95; nowy pomiar (M14, nowy seed) sprawdza pokrycie ORAZ moc; reguła zapisana przed pomiarem | κ zależy od modelu świata syntetycznego — jest to kalibracja przyrządu, nie wyniku; moc spadnie nieco poniżej 0,98 przy ρ = 0,12 |
+| (b) Zamknąć H04 na tej fazie | H04 → pozostaje `PROPOSED`, „nietestowalna przy h = 3 d na RESEARCH" | uczciwe, ale kalibracja (a) jest tania i nie kosztuje prób |
+
+Rekomendacja: **(a)**.
+
+**Konsekwencje.**
+
+* N = 10 bez zmian. Nic nie zostało zestawione z prawdziwym zwrotem.
+* Reguła ogólna: każda przyszła metoda CI dla cechy trwałej przechodzi
+  pomiar **mocy pod H1** (wzór M13), nie tylko pokrycia pod H0 (M10).

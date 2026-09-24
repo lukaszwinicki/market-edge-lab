@@ -111,3 +111,59 @@ def reportable(trades: pl.DataFrame, margins: tuple[float, ...]) -> None:
             f"brak kolumn net po pełnym koszcie: {missing}. "
             "Warstwa B nie może raportować wyniku bez członu finansowania "
             "(ADR-016) — uruchom attach_swap().")
+
+
+# --------------------------------------------------------------------------
+# Przychód carry — kierunkowy człon finansowania (H04, ADR-026)
+# --------------------------------------------------------------------------
+#
+# ADR-016 wpuścił do pełnego kosztu wyłącznie MARŻĘ swapu, bo różnica stóp
+# jest treścią hipotezy H04, a nie kosztem. Dla wyceny carry (warstwa B T004)
+# ta różnica wraca jako PRZYCHÓD kierunkowy: long waluty wyżej oprocentowanej
+# dostaje, short płaci. Osobna kolumna, żeby `r_net_<m>` zostało porównywalne
+# z T003, a przychód carry było widać jako osobną liczbę.
+
+CARRY_PREFIX = "r_net_carry_"
+
+
+def carry_net_column(margin: float) -> str:
+    return f"{CARRY_PREFIX}{margin}"
+
+
+def attach_carry(trades: pl.DataFrame, margins: tuple[float, ...], *,
+                 diff_col: str, triple_on_wednesday: bool = True,
+                 price_col: str = "ref_price", entry_col: str = "ts_decision",
+                 exit_col: str = "exit_ts") -> pl.DataFrame:
+    """Dołóż `carry_r` i `r_net_carry_<m> = r_net_<m> + carry_r`.
+
+    `diff_col` — różnica stóp base − quote w punktach procentowych, znana
+    w momencie decyzji. Przychód = kierunek · cena · różnica/100 · dni/365,
+    w jednostkach R (mianownik `risk`, jak w `swap_margin_r`). Stopa przyjęta
+    z decyzji przez całe okno — zmiana stopy w trakcie trzydniowej pozycji
+    jest rzadka i nie może być znana w chwili wejścia.
+    """
+    from .swap import DAYS_IN_YEAR, financing_days
+
+    for col in (diff_col, "side", price_col, entry_col, exit_col, "risk"):
+        if col not in trades.columns:
+            raise ValueError(f"brak kolumny {col!r} wymaganej do przychodu carry")
+    missing = [net_column(m) for m in margins if net_column(m) not in trades.columns]
+    if missing:
+        raise ValueError(f"najpierw attach_swap — brak {missing}")
+    if trades.is_empty():
+        return trades.with_columns(
+            [pl.lit(None, dtype=pl.Float64).alias("carry_r")]
+            + [pl.lit(None, dtype=pl.Float64).alias(carry_net_column(m)) for m in margins])
+
+    sign = [1.0 if s == "long" else -1.0 for s in trades.get_column("side").to_list()]
+    days = [financing_days(a, b, triple_on_wednesday=triple_on_wednesday)
+            for a, b in zip(trades.get_column(entry_col).to_list(),
+                            trades.get_column(exit_col).to_list())]
+    out = trades.with_columns(pl.Series("_sgn", sign), pl.Series("_days", days))
+    out = out.with_columns(
+        (pl.col("_sgn") * pl.col(price_col) * pl.col(diff_col) / 100.0
+         * pl.col("_days") / DAYS_IN_YEAR / pl.col("risk")).alias("carry_r")
+    ).drop("_sgn", "_days")
+    return out.with_columns(
+        [(pl.col(net_column(m)) + pl.col("carry_r")).alias(carry_net_column(m))
+         for m in margins])

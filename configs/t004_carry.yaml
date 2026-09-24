@@ -1,13 +1,20 @@
-# t004_carry.yaml — SZKIC PREREJESTRACJI T004 (H04, carry)
+# t004_carry.yaml — PREREJESTRACJA T004 (H04, carry)
 #
-# STATUS: DRAFT — NIE ZAMROŻONY. Żadna sekcja nie ma `frozen: true`.
-# Runner T004 nie istnieje; zamrożenie wymaga decyzji oznaczonych
-# `DECYZJA:` poniżej. Do tego czasu cecha H04 NIE może zostać zestawiona
-# z żadnym zwrotem (ADR-012, ADR-020).
+# STATUS: NIEZAMROŻONA (ADR-027). M13 wykazał, że metoda CI z sekcji
+# layer_a.ci ma sufit mocy ~0,3 — test nie wykrywa nawet efektu 56%.
+# Wszystkie sekcje `frozen: false`; runner odmawia startu (hash PENDING).
+#
+# Dziedziczy `base.yaml`. Wszystko, co tutaj stoi, jest ZADEKLAROWANE PRZED
+# uruchomieniem. Zmiana czegokolwiek po zobaczeniu wyniku to NOWY eksperyment
+# z nowym ID, nie poprawka tego.
 #
 # Podstawa: ADR-017 (deflacja przed zamrożeniem) · ADR-019 (kontrola
-# zachowująca autokorelację) · ADR-022 (geometria przed planem) · ADR-023
-# (seria overnight, point-in-time) · M09, M10.
+# zachowująca autokorelację) · ADR-022 (geometria przed planem) · ADR-025
+# i ADR-026 (cecha = stopy polityki, CI z rozkładu zerowego) · ADR-027
+# (zamrożenie: horyzont, deflacja, warstwa B) · M09–M12.
+#
+# Hash tego pliku jest zapisany w EXPERIMENTS.md i w runnerze
+# `scripts/t004_carry.py`, który odmawia startu przy niezgodności.
 
 meta:
   trial_id: "T004"
@@ -20,111 +27,193 @@ meta:
   counter_after: 11
 
 hypothesis:
+  frozen: false
   mechanism: >
     Naruszenie parytetu stóp procentowych (UIP). Waluta wyżej oprocentowana
     nie deprecjonuje się tyle, ile implikuje różnica stóp.
   prediction: >
-    Różnica stóp overnight (base − quote), znana w momencie decyzji, ma
+    Różnica stóp polityki (base − quote), znana w momencie decyzji, ma
     DODATNIĄ relację ze znormalizowanym zwrotem ceny pary przez kolejne h.
   measured_on: "wszystkie decyzje sesji primary z określoną cechą i targetem"
+  scope_of_result: >
+    Wynik dotyczy TRZYDNIOWEGO wycinka dryfu UIP. Nie mówi nic o zdolności
+    przewidywania na skali miesięcy, na której mechanizm jest formułowany
+    w literaturze (HYPOTHESES.md H04, „Problem — horyzont"). Wynik negatywny
+    nie wyklucza carry jako strategii miesięcznej.
 
 sample:
+  frozen: false
   universe: [EURUSD, GBPUSD, USDJPY, AUDUSD, USDCAD, EURJPY]
   warmup_from: "2015-01-01"
   first_decision: "2016-01-01"
   last_decision_segment_end: "2021-12-31"
-  session: {primary: {start: "08:00", end: "22:00", tz: "UTC"}}
+  session:
+    primary: {start: "08:00", end: "22:00", tz: "UTC"}
+    secondary: "wszystkie godziny — raportowane bez CI, bez wpływu na werdykt"
   windows_crossing_segment_end: {policy: "drop"}
 
 feature:
+  frozen: false
   name: "carry_policy"
   formula: "stopa_polityki(base) − stopa_polityki(quote), punkty procentowe"
-  definition: "stopa polityki sterująca rynkiem overnight (ADR-025)"
+  definition: "stopa polityki sterująca rynkiem overnight (ADR-025, ADR-026)"
   sources:
     USD: "FRED DFEDTARU/DFEDTARL — środek przedziału"
     EUR: "FRED ECBDFR — stopa depozytowa"
     GBP: "BoE IADB IUDBEDR — Bank Rate"
     CAD: "BoC Valet V39079"
-    AUD: "tabela ręczna RBA (src/data/policy_rates.py), zweryfikowana w M12"
-    JPY: "tabela ręczna BoJ, zweryfikowana w M12"
-  verification: "M12 — każda waluta wobec OECD overnight, 0 podejrzanych miesięcy"
-  availability: >
-    Wartość z dnia ≤ decyzja − 1 dzień roboczy (`policy_pit`). Stopa
-    polityki nie jest rewidowana i nie ma opóźnienia publikacji.
-  missing: "brak wartości -> wiersz odpada, liczony w raporcie (M12: 0 dni)"
-  replaces: "OECD overnight z ALFRED — EUR bez PIT w 2016–2017 (ADR-025)"
+    AUD: "tabela ręczna RBA (src/data/policy_rates.py)"
+    JPY: "tabela ręczna BoJ (src/data/policy_rates.py)"
+  verification: "M12 20260924T212921Z-b1fcdc — każda waluta wobec OECD, 0 podejrzanych miesięcy"
+  availability: "wartość z dnia ≤ data decyzji − 1 dzień roboczy (policy_pit)"
+  missing: "brak wartości -> wiersz odpada, liczony w raporcie"
 
 grid:
+  frozen: false
   horizons_business_days: [3]
   cells: 1
-  # DECYZJA: napięcie horyzontu (HYPOTHESES.md H04). Mechanizm działa
-  # w skali miesięcy; h = 3 d to jedyny horyzont z kalibracją kosztu
-  # (M03, M04) i zmierzoną mocą (M09, M10). Rekomendacja: h = 3 d, z zapisem,
-  # że wynik dotyczy trzydniowego wycinka dryfu UIP — NIE zdolności
-  # przewidywania na skali miesięcy. Dłuższy horyzont wymaga osobnej
-  # kalibracji kosztu i mocy (M05: h = 10 d traci FALSIFIED).
+  horizon_rationale: >
+    Jedyny horyzont z kalibracją kosztu (M03, M04) i zmierzoną mocą
+    (M09–M12). M05: h = 10 d traci FALSIFIED. Ograniczenie interpretacji —
+    `hypothesis.scope_of_result`.
 
+# ---------------------------------------------------------------------------
+# WARSTWA A — jedyny instrument falsyfikacji (ADR-015)
+# ---------------------------------------------------------------------------
 layer_a:
+  frozen: false
   target: "fwd_atr = (cena wyjścia − cena odniesienia) / atr_d1_14"
   primary_statistic: "spearman(carry_policy, fwd_atr), rangi średnie, pooled po parach"
+  secondary_statistic: "pearson(carry_policy, fwd_atr)"
   statistic_choice_rationale: >
-    Jak w T003 (kurtoza fwd_atr). Rangi ŚREDNIE, bo cecha miesięczna ma
-    masowe remisy — rangi z argsort rozstrzygałyby je kolejnością wierszy.
+    Spearman jak w T003 (kurtoza fwd_atr). Rangi ŚREDNIE, bo cecha ma masowe
+    remisy — rangi z argsort rozstrzygałyby je kolejnością wierszy, czyli
+    czasem.
+  costs: "BRAK — warstwa A jest pomiarem informacji (ADR-003)"
+
   ci:
-    method: "rozklad_zerowy_surogatu"   # ADR-026 — reguła M10 wskazała null, nie bootstrap
-    formula: "rho_hat ± 1,96 · SE_null"
-    se_null: "400 replikacji surogatu skalibrowanego jak M09B (M12 → M09B policy)"
-    level: 0.95
-    reported_alongside: "block bootstrap po dniach, 20 dni — bez wpływu na werdykt"
+    method: "rozklad_zerowy_surogatu"   # ADR-026
+    formula: "rho_hat ± z · SE_null"
+    se_null: >
+      Odchylenie standardowe statystyki na 400 replikacjach surogatu
+      skalibrowanego w M09B (`20260924T213027Z-47327e`), osobno dla obu
+      modeli trwałości (ar1_measured, random_walk); wiążące jest WIĘKSZE.
+    surrogate_seed: 20261001
+    reps_per_model: 400
+    reported_alongside: "block bootstrap po dniach, bloki 20, 2000 replikacji — bez wpływu na werdykt"
     consistency_check:
       rule: >
-        SE_null ORAZ SE_boot na danych prawdziwych w [0,5; 2,0] × prawdziwe SD
-        ze świata syntetycznego M10 (0,02472–0,02542).
+        SE_null ORAZ SE_boot w przedziale [0,01236; 0,05084], czyli
+        [0,5 · 0,02472; 2,0 · 0,02542] — prawdziwe SD z M10.
       on_failure: "STOP — przyrząd nie mierzy tego, co zmierzył M10"
       m10_run: "20260924T213436Z-7a92ef"
+
   power:
     source: "M10 na stopach polityki — prawdziwe SD, najgorszy wariant (AR(1) / gauss)"
     n_eff: 1547
     half_ci_over_rho_be: 0.92
-    mde_acc_pct_before_deflation: 52.27
-    dead_zone_pp_before_deflation: 0.55
     runtime_risk: >
-      SE_null ma cv ≈ 0,33. P(SE_null > 0,02756) ≈ 41% — wtedy FALSIFIED jest
-      nieosiągalne w samym przebiegu i wynik może być wyłącznie SUPPORTED
-      albo NOT_SUPPORTED z górnym ograniczeniem (ADR-026).
+      SE_null ma cv ≈ 0,33. P(SE_null > 0,02756) ≈ 41% — wtedy FALSIFIED
+      jest nieosiągalne w samym przebiegu i wynik może być wyłącznie
+      SUPPORTED albo NOT_SUPPORTED z górnym ograniczeniem (ADR-026).
 
+# ---------------------------------------------------------------------------
+# KRYTERIA FALSYFIKACJI
+# ---------------------------------------------------------------------------
 falsification:
+  frozen: false
   layer: "A"
   breakeven: {accuracy_pct: 51.72, rho_equivalent: 0.05401}
+
+  deflation:
+    # ADR-017: zadeklarowana przed zamrożeniem. ADR-027: forma.
+    method: "Šidák po wszystkich próbach na segmencie RESEARCH"
+    n_trials_at_freeze: 11          # 7 odziedziczonych + 3 z T003 + 1 ta
+    alpha_family: 0.05
+    alpha_per_trial: 0.004652
+    z_supported: 2.8302
+    applies_to: "WYŁĄCZNIE SUPPORTED. FALSIFIED i górne ograniczenie — z = 1,96"
+    rationale: >
+      Deflacja może tylko utrudnić wynik pozytywny. Równoważność (FALSIFIED)
+      nie jest odkryciem i nie korzysta z wielu spojrzeń, więc nie jest
+      deflowana.
+
   supported:
-    rule: "CI > 0 PO DEFLACJI oraz kontrola zachowująca autokorelację pobita"
-    # DECYZJA (ADR-017): forma deflacji o N. Rekomendacja w raporcie sesji.
-    deflation: "PENDING_DECISION"
+    rule: "rho_hat − 2,8302 · SE_null > 0"
+    detectability_pct: 52.98        # MDE przy mocy 80%, SE = 0,02542, z = 2,8302
+    dead_zone_pp: 1.26
+
   falsified:
-    rule: "CI95 w całości wewnątrz ±0,05401"
-    multiplicity: "brak — jedna komórka; deflacja nie dotyczy równoważności"
+    rule: "rho_hat ± 1,96 · SE_null w całości wewnątrz ±0,05401"
+    reachable: "tak przy SE_null < 0,02756 — patrz layer_a.power.runtime_risk"
+
   not_supported:
     rule: "każdy inny wynik"
-    reporting_duty: "górne ograniczenie w jednostce trafności kierunku"
+    reporting_duty: >
+      Górne ograniczenie (rho_hat + 1,96 · SE_null) w jednostce trafności
+      kierunku. NOT_SUPPORTED bez ograniczenia nie jest wynikiem.
 
+  dead_zone_written_out: >
+    Efekt o trafności między 51,72% a 52,98% jest realnie opłacalny, a pomiar
+    zwróci NOT_SUPPORTED. To jest cena deflacji o 11 spojrzeń i jest znana
+    przed uruchomieniem.
+
+# ---------------------------------------------------------------------------
+# Kontrole
+# ---------------------------------------------------------------------------
 random_control:
-  # ADR-019: kontrola musi zachowywać autokorelację cechy.
-  method: >
-    Surogat carry skalibrowany jak w M09B (geometria z M12), cecha
-    losowana, zwroty prawdziwe. NIE permutacja wierszy.
+  frozen: false
+  method: "surogat zachowujący trwałość cechy — ten sam, który daje CI (ADR-019, ADR-026)"
   identity_with_ci: >
-    Ten sam surogat daje CI (ADR-026), więc „kontrola pobita" jest tożsama
-    z CI > 0 i nie jest liczona podwójnie.
+    „Kontrola pobita" jest tożsama z kryterium SUPPORTED i nie jest liczona
+    podwójnie.
 
 control_aged_feature:
+  frozen: false
   arm: "carry_policy z marginesem 6 dni roboczych zamiast 1 (wartość o tydzień starsza)"
-  criterion: "rho_aged − rho_true < 2·SE(różnicy)"
-
-layer_b:
-  role: "wycena — raportowana, nie rozstrzyga"
-  run_when: "tylko przy sygnale w A (ADR-003)"
+  criterion_set_before_run: >
+    rho_aged − rho_true < 2 · SE(różnicy), SE block bootstrapem na parach
+    (te same bloki).
+  on_failure: "STOP — audyt wyrównania dat przed raportowaniem"
   note: >
-    Dla carry człon finansowania jest KIERUNKOWY — różnica stóp jest tu
-    przychodem, nie tylko kosztem. `swap.py` liczy wyłącznie marżę
-    (ADR-016); wycena carry wymaga dołożenia członu różnicy stóp PIT
-    do wyniku. To jest praca PRZED zamrożeniem warstwy B.
+    Przy cesze tak trwałej oba ramiona są prawie identyczne; ramię wykrywa
+    grube przesunięcie dat (np. użycie stopy przed ogłoszeniem), nie
+    subtelny off-by-one.
+
+# ---------------------------------------------------------------------------
+# WARSTWA B — wycena, nie test (ADR-015)
+# ---------------------------------------------------------------------------
+layer_b:
+  frozen: false
+  role: "wycena — raportowana, nie rozstrzyga o statusie H04"
+  run_when: "wyłącznie przy SUPPORTED (ADR-003)"
+  direction: "sign(carry_policy): long przy dodatniej różnicy, bez progu"
+  barriers: {sl_x_atr_d1_14: 1.1, tp_x_atr_d1_14: 2.2, sigma_r_measured: 0.9165}
+  costs:
+    model: "jak T003 — spread tickowy, podłogi, poślizg, marża swapu na osi"
+    margin_axis: [0.005, 0.01, 0.02]
+    carry_income: >
+      Kierunkowy przychód z różnicy stóp polityki w dniu decyzji, naliczany
+      w dniach finansowania (środa potrójna): `attach_carry`,
+      kolumny `r_net_carry_<m>`. Raportowane OBOK `r_net_<m>`.
+  metric: "expectancy w R netto z przychodem carry, per marża, z CI95"
+  dsr: "raportowany dla marży 1% (n_obs = 1547), diagnostyka — ADR-017"
+
+reporting:
+  frozen: false
+  axes: [instrument, year, direction, vol_regime]
+  secondary_session: "Spearman bez CI"
+  bootstrap_se: "raportowane obok SE_null wraz z ilorazem"
+
+artifacts:
+  dir: "runs/<run_id>/"
+  files: [t004.md, t004_report.json, observations.parquet, t004_carry.yaml]
+  updates: [HYPOTHESES.md, EXPERIMENTS.md, PROGRESS.md, trials/trials.jsonl]
+
+start_conditions:
+  frozen: false
+  met:
+    - "M09–M12: cecha zweryfikowana, moc zmierzona prawdziwym SD, metoda CI wybrana regułą"
+    - "przychód carry w warstwie B (attach_carry) z testami"
+    - "runner z --self-test na danych syntetycznych"
+  requires: "wyraźna zgoda użytkownika na uruchomienie — N: 10 → 11"

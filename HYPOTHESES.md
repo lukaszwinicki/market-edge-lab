@@ -125,7 +125,8 @@ Komórka k = 480 jest najsłabsza i to ona wyznacza, co T003 potrafi wykluczyć.
 | **Moc — ZMIERZONA (M09, M10)** | `FACT`. Wiążące jest prawdziwe SD ze świata syntetycznego (M10): **n_eff 1 472**, `FALSIFIED` osiągalne z ilorazem **0,95**, MDE 52,33% przed deflacją. M09B (1 870–2 344) był optymistyczny o 21%. CI = block bootstrap (ADR-024) |
 | **Dane PIT — BLOKADA (M11, ADR-025)** | `FACT`. Seria OECD EUR nie istniała point-in-time w 2016–2017 (vintage kończą się na 2013-12 do 2018-01-08). Bieżący vintage był dla EUR look-aheadem |
 | **Cecha — USTALONA (M12, ADR-026)** | Różnica stóp polityki sterujących rynkiem overnight, point-in-time z konstrukcji; źródła zweryfikowane wobec OECD. n_eff **1 547**, `FALSIFIED` osiągalne (0,92), CI z rozkładu zerowego |
-| **Następny krok** | Decyzje przed zamrożeniem T004: horyzont, deflacja, człon różnicy stóp w warstwie B; potem zgoda na uruchomienie (N: 10 → 11) |
+| **Moc pod H1 — ZMIERZONA (M13, ADR-027)** | `FACT`. CI z rozkładu zerowego ma sufit mocy ~0,3 (0,24 przy ρ = 0,12). Bootstrap: 0,98, ale odpadł na pokryciu pod H0 w M10. T004 **niezamrożony** |
+| **Następny krok** | Decyzja ADR-027: (a) bootstrap skalibrowany współczynnikiem κ z nowego pomiaru M14 (rekomendacja) albo (b) zamknięcie H04 w tej fazie |
 
 ---
 
@@ -201,3 +202,4 @@ Komórka k = 480 jest najsłabsza i to ona wyznacza, co T003 potrafi wykluczyć.
 | 2026-09-24 | H04 | bez zmiany statusu | **M10** (`20260924T203841Z-ad7ab7`, kontrola, dane syntetyczne): rozjazd SE wyjaśniony, CI = bootstrap (ADR-024). n_eff wiążące 1 472, `FALSIFIED` osiągalne |
 | 2026-09-24 | H04 | bez zmiany statusu | **M11** (`20260924T211756Z-2329f2`, kontrola): EUR bez wartości point-in-time w 2016–2017. Prerejestracja T004 wstrzymana do wyboru źródła stóp (ADR-025) |
 | 2026-09-24 | H04 | bez zmiany statusu | **M12** (`20260924T212921Z-b1fcdc`) + M09B/M10 na nowej cesze: stopy polityki zweryfikowane, n_eff 1 547, CI z rozkładu zerowego (ADR-026). Pomiar NIE zestawił cechy ze zwrotem |
+| 2026-09-25 | H04 | bez zmiany statusu | **M13** (`20260924T215452Z-2744d2`, kontrola, dane syntetyczne): metoda CI z ADR-026 nie ma mocy pod H1. T004 niezamrożony (ADR-027) |
