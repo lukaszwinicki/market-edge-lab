@@ -1080,3 +1080,82 @@ leakage'u). (c) *Zmienić `is_cross` tak, by zwracała `None`.* Odrzucone:
   zachowania kodu, który już łapał `KeyError`.
 * Zmiana roli kohorty wymaga **nowego ADR-u**, który jawnie unieważni ten.
   Nie wystarczy edycja `base.yaml`.
+
+---
+
+## ADR-019 — Kontrola permutacyjna T003 nie jest ważnym rozkładem zerowym dla statystyki rangowej
+
+**Status:** ACCEPTED · 2026-09-24 · **Wykryte w:** T003
+(`20260924T150658Z-8daa11`) · **Nie zmienia:** werdyktu T003
+
+**Decyzja.** `p`-wartości kontroli permutacyjnej w raporcie T003 zostają
+oznaczone jako **bez wartości dowodowej**; werdykt T003 opiera się wyłącznie
+na przedziałach ufności i **nie jest przeliczany**. Każda przyszła
+prerejestracja deklarująca kontrolę dla statystyki relacji musi deklarować
+kontrolę **zachowującą autokorelację cechy** oraz zgodność jej rozrzutu
+z rozrzutem bootstrapu.
+
+**Powód (`FACT`).** Kontrola permutacyjna zadeklarowana w prerejestracji
+T003 — „permutacja cechy względem targetu, w obrębie pary" — daje rozkład
+zerowy **4,5 do 8,3 razy zbyt wąski**:
+
+| k | SD permutacji | SE block bootstrapu | Surogat M05 | Ile razy za wąsko |
+|---|---|---|---|---|
+| 24 | 0,00283 | 0,01285 | 0,01393 | **4,5×** |
+| 120 | 0,00266 | 0,02212 | 0,02084 | **8,3×** |
+| 480 | 0,00290 | 0,02268 | 0,02293 | **7,8×** |
+
+`1/√130 553 = 0,00277`. Rozrzut permutacji jest więc **dokładnie rozrzutem
+iid** — permutacja rozbija nie tylko związek cechy z targetem, ale też
+**autokorelację samej cechy**. `mom_480` ma na sąsiednich barach korelację
+99,8%; po przetasowaniu nie ma jej wcale.
+
+To jest ta sama pułapka, przed którą ostrzegał M05 we własnym module:
+*„Cecha zastępcza z szumu białego zaniżyłaby rozrzut statystyki o rząd
+wielkości i dałaby n_eff wzięte z sufitu."* M05 uniknął jej, budując surogat
+o właściwej autokorelacji. Prerejestracja T003 wpadła w nią, bo deklarowała
+kontrolę w kategoriach warstwy B („zachowuje wszystko poza timingiem"), gdzie
+statystyka jest liniowa i przetasowanie działa.
+
+**Dlaczego to NIE zmienia werdyktu T003.** Kryterium `SUPPORTED` wymaga
+**koniunkcji**: CI > 0 po korekcie Holma **i** pobitej kontroli. Kontrola
+została „pobita" (p = 0,0120 / 0,0000 / 0,0000) właśnie dlatego, że jest za
+wąska — ale **CI nie przekroczyło zera w żadnej komórce**, więc koniunkcja
+i tak nie zaszła. Wada działa wyłącznie w stronę **antykonserwatywną**: mogła
+wyprodukować fałszywe `SUPPORTED`, nie mogła wyprodukować fałszywego
+`NOT_SUPPORTED`. Werdykt stoi.
+
+Gdyby CI wyszło dodatnie, ten sam wynik byłby **nieważny** — i nie dałoby się
+tego naprawić po fakcie, bo kryterium było zamrożone.
+
+**Czego nie robimy.** Nie poprawiamy prerejestracji T003 i nie przeliczamy
+jego werdyktu. Wpis jest zamknięty, kryteria były zamrożone przed
+uruchomieniem, a zmiana po zobaczeniu wyniku — nawet w stronę surowszą — jest
+tym, czego cały projekt zakazuje (por. ADR-017, ten sam argument).
+
+**Reguła na przyszłość.** Każda prerejestracja deklarująca kontrolę
+permutacyjną dla statystyki **relacji** musi zadeklarować kontrolę
+**zachowującą autokorelację cechy**. Poprawną konstrukcję ma już M05:
+surogat jako różnica skumulowanych przyrostów na oknie `k`, o korelacji
+międzyparowej z modelu bramkowego. Prerejestracja ma też **zadeklarować
+zgodność rozrzutu kontroli z rozrzutem bootstrapu** — rozjazd o czynnik
+większy niż ~1,5 oznacza, że jedno z dwóch mierzy nie to, co trzeba.
+
+**Alternatywy.** (a) *Uznać p-wartości za ważne i raportować je bez
+zastrzeżenia.* Odrzucone: `p = 0,0000` przy CI zawierającym zero to nie
+wynik, to sprzeczność, i czytelnik ma prawo ją zobaczyć nazwaną.
+(b) *Usunąć p-wartości z raportu.* Odrzucone: zostały policzone w przebiegu
+i ich usunięcie byłoby retuszem. Zostają, oznaczone jako nieważne.
+(c) *Powtórzyć T003 z poprawną kontrolą.* Odrzucone **na teraz**: to nowy
+eksperyment z nowym ID i kolejnymi trzema próbami, a werdykt `NOT_SUPPORTED`
+jest od niego niezależny.
+
+**Konsekwencje.**
+
+* Pole `random_control_beaten: true` w raporcie T003 jest **bez wartości
+  dowodowej**. Werdykt opiera się wyłącznie na przedziałach ufności.
+* Sprawdzenie krzyżowe bootstrap ↔ M05 przeszło we wszystkich komórkach
+  (ilorazy 0,923 / 1,062 / 0,989), więc **przedziały ufności są wiarygodne** —
+  wada dotyczy wyłącznie kontroli permutacyjnej.
+* `pbo.py` nadal niewpięty (ADR-017); przy okazji następnej prerejestracji
+  warto rozstrzygnąć oba długi naraz.

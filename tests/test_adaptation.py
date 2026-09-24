@@ -145,7 +145,18 @@ def test_inherited_trials_is_seven_in_the_real_registry():
 
 
 def test_n_trials_starts_from_inherited_not_from_zero():
-    assert n_trials(ROOT / "trials" / "trials.jsonl") == 7
+    """N = odziedziczone + warianty własnych przebiegów `strategy`.
+
+    Sprawdzamy REGUŁĘ, nie migawkę. Wpisana na sztywno siódemka trzymała się
+    do pierwszego prawdziwego trialu i pękła na T003 — a to jest moment,
+    w którym test miał potwierdzić, że licznik działa, nie zgłosić awarię.
+    """
+    p = ROOT / "trials" / "trials.jsonl"
+    own = sum(int(r.get("n_variants", 1)) for r in read_trials(p)
+              if r.get("event") == "start" and r.get("kind") == "strategy")
+    assert inherited_trials(p) == 7
+    assert n_trials(p) == 7 + own
+    assert n_trials(p) >= 7
 
 
 def test_inherited_record_is_not_counted_as_a_run(tmp_path):

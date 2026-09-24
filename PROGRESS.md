@@ -13,25 +13,22 @@ Każdą liczbę sprawdzać komendą, nie brać na wiarę.
 
 ## Gdzie jesteśmy
 
-**Seria kontrolna M01–M06 ZAMKNIĘTA.** Aparatura ma sprawdzone **zero**
-(M03), sprawdzone **wzmocnienie** (M04), zmierzony **rozkład zerowy metryki
-głównej** (M05) i zero **pełnego** modelu kosztu (M06).
+**PIERWSZY WYNIK NA HIPOTEZIE JEST.** T003 zamknięty 2026-09-24
+(`20260924T150658Z-8daa11`, 355 s): **H01 → `NOT_SUPPORTED`**.
 
-**T003 jest PREREJESTROWANY i ZAMROŻONY** (2026-09-24) —
-`configs/t003_momentum.yaml`, `sha256 c832dcdc…`. Pierwszy protokół na
-hipotezie, który spełnia wszystkie sześć warunków ADR-011. Nieuruchomiony.
+**Licznik prób: N = 10** (7 odziedziczonych + 3 warianty T003). To pierwsze
+próby zapalone w tym projekcie. M01–M06 to kontrole, nie liczą się do N.
 
-**Licznik prób: N = 7** (odziedziczone, ADR-004). Uruchomionych prób
-strategii w tym projekcie: **0**. M01–M06 to kontrole, nie liczą się do N.
-T003 doliczy **3** (N → 10), nie 6 jak T001.
+**Górne ograniczenie: 51,03% trafności kierunku** — **0,69 pp poniżej progu
+opłacalności 51,72%**. Dodatnia relacja momentum, jeżeli istnieje, nie pokrywa
+kosztów. To jest wynik, nie brak wyniku.
 
-**Testy: 520.** **Oba warunki startu T003 zamknięte** (2026-09-24), runner
-kompletny wobec prerejestracji i **zweryfikowany przebiegiem zastępczym
-na danych syntetycznych** — pełna ścieżka `main()` bez rejestru i bez
-prawdziwych danych. Przegląd gotowości znalazł jedną blokadę (`pooled` gubiło
-`bar_ts`, checklista wywracała przebieg PO zapaleniu prób); poprawiona.
-**Następny krok: uruchomienie T003**, N: 7 → 10. Jedyny pozostały krok
-i jedyny, który zapala próby.
+Seria kontrolna M01–M06 zamknięta; aparatura ma sprawdzone zero (M03),
+wzmocnienie (M04), rozkład zerowy metryki głównej (M05) i zero pełnego modelu
+kosztu (M06).
+
+**Testy: 520.** **Następny krok: decyzja, co dalej z rejestrem hipotez** —
+patrz „Co T003 zmienia w planie".
 
 ---
 
@@ -54,12 +51,28 @@ jego narracja żyje w ADR-016 i `EXPERIMENTS.md`.
 
 ### Liczby, które trzeba mieć w głowie
 
-Siatka T003 — **warstwa A**, h = 3 d, Spearman. Próg opłacalności **51,72%**.
-Progi wykrywalności **po korekcie Holma** na 3 komórki — tak, jak działa
-kryterium `SUPPORTED`. Bez korekty byłoby 51,24 / 51,86 / 52,05%.
+**Wynik T003** — warstwa A, h = 3 d, Spearman, n = 130 553 w każdej komórce:
 
-| k | n_eff (zmierzone) | Próg wykrywalności | Martwa strefa | `FALSIFIED` |
+| k | Spearman | CI95 | SE tutaj / M05 | Ramię postarzone |
 |---|---|---|---|---|
+| 24 | **+0,0070** | [−0,0186, +0,0322] | 0,01285 / 0,01393 (0,92) | −1,50 SE ✓ |
+| 120 | **−0,0328** | [−0,0766, +0,0103] | 0,02212 / 0,02084 (1,06) | −1,88 SE ✓ |
+| 480 | **−0,0315** | [−0,0781, +0,0121] | 0,02268 / 0,02293 (0,99) | −0,19 SE ✓ |
+
+Próg opłacalności **51,72%**. Górne ograniczenie **51,03%**.
+
+**Dlaczego nie `FALSIFIED`:** dolny koniec CI przy k = 120 i 480 (−0,077,
+−0,078) wychodzi poza pasmo ±0,054. Blokuje niewykluczona relacja **ujemna**,
+nie dodatnia.
+
+**`p`-wartości z raportu są nieważne** (ADR-019) — kontrola permutacyjna
+rozbija autokorelację cechy i daje rozrzut iid, 4,5–8,3× za wąski. Werdyktu
+nie zmienia: `SUPPORTED` wymagał koniunkcji z CI > 0, która nie zaszła.
+
+Warstwa B **nie uruchomiona** — ADR-003: bez sygnału w warstwie A nie ma
+czego wyceniać. Zero przyrządu przy pełnym koszcie pozostaje −0,0373 R (M06).
+
+---|---|---|---|---|
 | 24 | 5 150 | 51,44% | **−0,28 pp** | osiągalne (0,51) |
 | 120 | 2 302 | 52,15% | +0,43 pp | osiągalne (0,76) |
 | 480 | 1 902 | 52,36% | +0,64 pp | osiągalne (0,83) |
@@ -134,6 +147,37 @@ założeniem niekonserwatywnym, wyglądającym na ostrożne.
 
 | # | Krok | Rozstrzyga |
 |---|---|---|
+| ~~1–8~~ | ~~M01–M06, prerejestracja, warstwa etykiet, pełny koszt~~ | **ZAMKNIĘTE** |
+| ~~9~~ | ~~**T003 — uruchomienie**~~ | **ZAMKNIĘTY** 2026-09-24. H01 → `NOT_SUPPORTED`. N: 7 → 10 |
+| **10** | **Co dalej z rejestrem hipotez** ← **TU JESTEŚMY** | Decyzja, nie pomiar. Trzy opcje niżej |
+| 11 | **T002** — H07 zdarzenie vs H02 stan, redundancja z H01 | Prerejestracja; deflacja i kontrola muszą być zadeklarowane PRZED zamrożeniem (ADR-017, ADR-019) |
+
+### Co T003 zmienia w planie
+
+**H01 nie jest obalona — jest wyceniona.** Mechanizm under-reaction może
+istnieć; dane mówią tylko, że jego dodatnia postać na sześciu majorsach
+w latach 2016–2021, przy h = 3 d, jest **za mała, żeby pokryć koszty**.
+To jest mocniejsze niż „nie znaleziono": ograniczenie leży poniżej progu
+opłacalności, więc wyklucza obszar, który kogokolwiek interesował.
+
+**Trzy opcje, wszystkie wymagają decyzji, nie pomiaru:**
+
+1. **T002 zgodnie z planem** — H07 vs H02 plus redundancja z H01. Koszt:
+   kolejne próby przy N już równym 10 i podwyższonej poprzeczce DSR.
+2. **Nowa hipoteza z obserwacji post-hoc.** Punktowe oszacowania przy k = 120
+   i 480 są **ujemne**. Gdyby to miało być badane, wymaga NOWEGO ID, etykiety
+   `EXPLORATORY / POST-HOC` i `origin` wskazującego T003 — i **nie może** być
+   retroaktywnym potwierdzeniem czegokolwiek. CLAUDE.md: nie mnożymy hipotez,
+   żeby uniknąć wyniku negatywnego.
+3. **Zamknięcie fazy.** Rejestr ma jedną hipotezę zmierzoną, aparaturę
+   skalibrowaną i sześć hipotez czekających — z czego H02 jest podejrzana
+   o redundancję z H01, a H04 zablokowana danymi.
+
+**Czego T003 nie rozstrzygnął i nie mógł:** czy efekt istnieje na innym
+horyzoncie, na innym segmencie, albo na instrumentach spoza czynnika USD.
+Ostatnie nie jest dostępne bez naruszenia ADR-018.
+
+---|---|---|
 | ~~1–5~~ | ~~**M01–M05** — seria kontrolna~~ | **ZAMKNIĘTA** |
 | ~~6~~ | ~~**Prerejestracja T003**~~ | **ZAMROŻONA** 2026-09-24, `sha256 c832dcdc…` |
 | ~~7~~ | ~~**Warstwa etykiet**~~ | **GOTOWA** — `src/research/labels.py`, bez treści hipotezy w module |

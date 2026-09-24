@@ -22,8 +22,8 @@ Historia statusów jest dopisywana, nigdy nadpisywana.
 [market-quant / V1a — reguła FALSIFIED; mechanizmy NIEZMIERZONE]
  │  koniunkcja mom_480>0 ∧ donch_pos_55>0,80, 172 obs. efektywne, ADR-001
  │
- ├── H01 Momentum ............................ PREREGISTERED · priorytet 1
- │    │                                        (T001 WITHDRAWN → T003 zamrożony)
+ ├── H01 Momentum ........................... NOT_SUPPORTED (T003)
+ │    │                                        gorne ograniczenie 51,03% trafnosci
  │    │
  │    ├── oś: reżim zmienności (H03) ............. w protokole H01, nie osobna hipoteza
  │    ├── oś: sesja / godzina .................... w protokole H01
@@ -47,7 +47,7 @@ Historia statusów jest dopisywana, nigdy nadpisywana.
 | Pole | Treść |
 |---|---|
 | **ID** | H01 |
-| **Status** | `PREREGISTERED` (2026-09-24) — **T003 zamrożony**, nieuruchomiony. Poprzedni protokół T001 `WITHDRAWN` (ADR-011) |
+| **Status** | **`NOT_SUPPORTED`** (2026-09-24) — T003 zamknięty. Relacja nieodróżnialna od zera we wszystkich 3 komórkach; **górne ograniczenie 51,03%** trafności, czyli 0,69 pp **poniżej** progu opłacalności |
 | **Typ** | Confirmatory |
 | **Mechanizm** | **Under-reaction.** Informacja dyfunduje przez rynek stopniowo — część uczestników reaguje z opóźnieniem (ograniczenia mandatowe, rebalansowanie okresowe, kotwiczenie na cenach odniesienia). Cena dochodzi do nowej wartości w serii kroków, więc zwrot z przeszłości niesie informację o zwrocie przyszłym |
 | **Predykcja** | Znormalizowany zwrot z ostatnich k barów ma **dodatnią** relację ze znormalizowanym zwrotem przez kolejne h barów |
@@ -58,9 +58,9 @@ Historia statusów jest dopisywana, nigdy nadpisywana.
 | **Parent** | — |
 | **Protokół** | **T003, ZAMROŻONY** 2026-09-24 — `configs/t003_momentum.yaml`, `sha256 c832dcdc…`. Siatka: k ∈ {24, 120, 480} × h = 3 d = **3 komórki**, wszystkie raportowane, bez wyboru najlepszej. Falsyfikacja stoi na **warstwie A** (ADR-015): Spearman `mom_k` ↔ `fwd_atr`, pooled po parach. Warstwa B (net R, kierunek `sign(mom_k)` bez progu) raportowana jako wycena, nie jako test. Pomiar na wszystkich barach z określoną cechą, bez warstwy portfelowej (ADR-002). Osie: para, rok, kierunek, kubełek `vol_pct_252`, sesja |
 | **Kryteria falsyfikacji** | Na warstwie A, próg opłacalności 51,72% trafności = `ρ 0,05401` (M04). `SUPPORTED`: CI > 0 w ≥1 komórce po korekcie Holma **i** kontrola permutacyjna pobita p < 0,05. `FALSIFIED`: CI95 w całości wewnątrz ±0,05401 we **wszystkich** komórkach (intersection-union, bez korekty). `NOT_SUPPORTED`: każdy inny wynik — raport **musi** podać górne ograniczenie na efekt. Osiągalność zmierzona w M05, nie założona |
-| **Obecne dowody** | Brak własnych. Zewnętrznie: `market-quant` nie wykrył efektu w koniunkcji z H02 przy mocy pozwalającej wykryć wyłącznie przewagę ≥0,10 R. **To nie jest dowód przeciwko H01** — komponent nie był mierzony osobno |
-| **Powiązane triale** | T001 `WITHDRAWN` (nigdy nieuruchomiony, ADR-011) · **T003 `PREREGISTERED`**, nieuruchomiony |
-| **Następny krok** | **Dwa warunki startu T003**, oba implementacyjne: (1) warstwa etykiet zbudowana od nowa, bez treści hipotezy w module — blokuje obie warstwy; (2) swap wpięty w `CostModel` + powtórzona kalibracja M03 (M06) — blokuje **wyłącznie warstwę B**, bo warstwa A nie zna kosztów (ADR-003). Moc zmierzona: n_eff **1 902–5 150**, próg wykrywalności **51,24–52,36%** trafności przy progu opłacalności 51,72%. Szczegóły: `reports/m05_layer_a_null.md` |
+| **Obecne dowody** | **Własne, T003**: Spearman(`mom_k`, `fwd_atr`) = +0,0070 / −0,0328 / −0,0315 dla k = 24/120/480, CI95 zawiera zero w każdej komórce. Mechanizm **nie został obalony**, ale **dodatnia relacja o wartości ekonomicznej została wykluczona**: górny koniec najszerszego CI to 51,03% trafności przy progu opłacalności 51,72%. Kontrola cech postarzonych przeszła. Zewnętrznie: `market-quant` nie mierzył tego komponentu osobno |
+| **Powiązane triale** | T001 `WITHDRAWN` (nigdy nieuruchomiony, ADR-011) · **T003 `CLOSED`** (`20260924T150658Z-8daa11`, N: 7 → 10) |
+| **Następny krok** | **Żaden na H01 w tej fazie.** Mechanizm pozostaje niewykluczony, ale jego dodatnia postać jest nieopłacalna przy tej mocy, a powtórzenie na tym samym segmencie nie dołoży informacji. Ewentualny powrót wymaga albo nowego segmentu, albo instrumentów spoza czynnika USD (ADR-018 — nie kohorty replikacyjnej) |
 
 **Uwaga do siatki.** Mechanizm under-reaction nie wskazuje jednej skali
 czasowej, więc pojedyncze k byłoby arbitralne. Trzy wartości są prerejestrowane
@@ -188,3 +188,4 @@ Komórka k = 480 jest najsłabsza i to ona wyznacza, co T003 potrafi wykluczyć.
 | 2026-09-23 | H03 | `PREREGISTERED` → `PROPOSED` | **ADR-011** — była prerejestrowana wewnątrz protokołu T001, zniknęła razem z nim |
 | 2026-09-24 | H01 | `PROPOSED` → `PREREGISTERED` | **T003 zamrożony** (`configs/t003_momentum.yaml`, `sha256 c832dcdc…`). Sześć warunków ADR-011 spełnione: ADR-014 (P_eff, geometria), ADR-015 (falsyfikacja na warstwie A, siatka 3 komórki), M05 (n_eff zmierzone, `FALSIFIED` osiągalne) |
 | 2026-09-24 | H03 | `PROPOSED` → `PREREGISTERED` | Wróciła jako oś raportowania `vol_regime` w zamrożonej prerejestracji T003. Nadal warunkowanie, nie sygnał |
+| 2026-09-24 | H01 | `PREREGISTERED` → `NOT_SUPPORTED` | **T003 zamknięty** (`20260924T150658Z-8daa11`, N: 7 → 10). CI95 zawiera zero we wszystkich 3 komórkach. Nie `FALSIFIED`, bo dolny koniec CI przy k = 120 i 480 wychodzi poza pasmo progu opłacalności — blokuje to niewykluczona relacja **ujemna**, nie dodatnia |

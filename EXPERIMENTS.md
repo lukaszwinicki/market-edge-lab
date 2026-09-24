@@ -6,8 +6,8 @@ a maszynowy zapis w `trials/trials.jsonl`.
 **Seria M** = sprawdzenia aparatury (kontrole). Nie liczą się do N w DSR.
 **Seria T** = triale hipotez. Każdy sprawdzony wariant liczy się do N.
 
-**Licznik prób: N = 7** (odziedziczone, ADR-004). Uruchomionych w tym
-projekcie: **0**.
+**Licznik prób: N = 10** (7 odziedziczonych, ADR-004 + 3 warianty T003).
+Uruchomionych prób strategii w tym projekcie: **3**.
 
 ---
 
@@ -23,7 +23,7 @@ projekcie: **0**.
 | M06 | — | `CLOSED` | **PRZECHODZI** — zero pełnego modelu kosztu to −0,0422 R; złożenie swapu identyczne co do bitu | ADR-016 |
 | T001 | H01 | `WITHDRAWN` | **nieuruchomiony** — konstrukcja bez mocy na osiągnięcie własnych kryteriów (M02) | ADR-011 |
 | T002 | H02, H07 | `PLANNED` | — | — |
-| T003 | H01 | **`PREREGISTERED`** | — **nieuruchomiony** | sześć warunków spełnione, **oba warunki startu zamknięte** |
+| T003 | H01 | `CLOSED` | **`NOT_SUPPORTED`** — relacja nieodróżnialna od zera we wszystkich 3 komórkach; górne ograniczenie **51,03%** trafności | H01 → `NOT_SUPPORTED`; ADR-019 |
 
 ---
 
@@ -572,6 +572,62 @@ dopiero po zamrożeniu T003 — ADR-012) i `vol_pct_252` jako oś raportowania
 H03. Testy: **327**.
 
 **T003 nie ma już blokerów.** Zostaje samo uruchomienie, N: 7 → 10.
+
+---
+
+## Wynik T003 (2026-09-24) · `20260924T150658Z-8daa11` · **N: 7 → 10**
+
+**Werdykt: `NOT_SUPPORTED`.** Czas przebiegu 355 s. Checklista leakage'u:
+17 pozycji, 0 niespełnionych. Warstwa B **nie uruchomiona** — warstwa A nie
+pokazała sygnału (ADR-003: „zatrzymujemy się tanio, nie spalając prób").
+
+| k | Spearman | CI95 | n | SE tutaj / M05 |
+|---|---|---|---|---|
+| 24 | **+0,0070** | [−0,0186, +0,0322] | 130 553 | 0,01285 / 0,01393 (0,92) |
+| 120 | **−0,0328** | [−0,0766, +0,0103] | 130 553 | 0,02212 / 0,02084 (1,06) |
+| 480 | **−0,0315** | [−0,0781, +0,0121] | 130 553 | 0,02268 / 0,02293 (0,99) |
+
+**Górne ograniczenie: 51,03% trafności kierunku** — czyli **0,69 pp PONIŻEJ
+progu opłacalności 51,72%** (M04). Dodatnia relacja momentum, jeżeli istnieje,
+jest za mała, żeby pokryć koszty.
+
+**Dlaczego nie `FALSIFIED`.** Kryterium wymaga CI w całości wewnątrz ±0,054
+we wszystkich komórkach. Przy k = 120 i k = 480 **dolny** koniec (−0,077,
+−0,078) wychodzi poza pasmo. Blokuje więc nie możliwa przewaga dodatnia, tylko
+niewykluczona relacja **ujemna**.
+
+### Trzy rzeczy, które przebieg potwierdził
+
+1. **Przedziały ufności są wiarygodne** (`FACT`). Sprawdzenie krzyżowe
+   z M05 przeszło we wszystkich komórkach — ilorazy 0,923 / 1,062 / 0,989
+   przy progu 25%. Rozrzut zmierzony surogatem i rozrzut zmierzony
+   bootstrapem na prawdziwej cesze zgadzają się do 8%.
+2. **Ramię kontrolne przeszło** (`FACT`). Cecha postarzona o bar jest
+   **gorsza** od prawdziwej we wszystkich komórkach (−1,50 / −1,88 / −0,19 SE).
+   Anomalia `market-quant` — gdzie postarzone cechy dawały wynik LEPSZY —
+   **nie powtórzyła się**. `UNKNOWN` z ADR-004 domknięte.
+3. **`P_eff` warstwy A zmierzone na prawdziwej cesze**: 3,09 / 3,18 / 3,40
+   wobec 3,21 przewidzianego przez M05. Diagnostyka, nie kryterium (ADR-014).
+
+### Czego wynikowi NIE wolno przypisać
+
+Punktowe oszacowania przy k = 120 i k = 480 są **ujemne**, co wyglądałoby na
+powrót do średniej. **To nie jest wynik T003.** Hipoteza przewidywała relację
+dodatnią; znak przeciwny zaobserwowany po fakcie wymaga NOWEGO ID
+i etykiety `EXPLORATORY / POST-HOC` z `origin` wskazującym ten trial, i nie
+może być retroaktywnym potwierdzeniem czegokolwiek (CLAUDE.md).
+
+Oba CI zawierają zero, więc dane nie każą odrzucić ani momentum, ani jego
+braku — mówią tylko, że **jeżeli efekt dodatni istnieje, jest nieopłacalny**.
+
+### Wada wykryta w trakcie: kontrola permutacyjna (ADR-019)
+
+`p = 0,0120 / 0,0000 / 0,0000` **jest bez wartości dowodowej**. Permutacja
+rozbija autokorelację cechy, więc jej rozkład zerowy ma SD 0,0028 ≈
+`1/√130 553` — rozrzut iid, 4,5–8,3× za wąski. Werdyktu to nie zmienia:
+`SUPPORTED` wymagał koniunkcji z CI > 0, a ta nie zaszła. Wada jest
+antykonserwatywna — mogła dać fałszywe `SUPPORTED`, nie fałszywe
+`NOT_SUPPORTED`. Szczegóły i reguła na przyszłość: **ADR-019**.
 
 ---
 
