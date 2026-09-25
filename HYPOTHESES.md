@@ -35,7 +35,7 @@ Historia statusów jest dopisywana, nigdy nadpisywana.
  │
  ├── H03 Reżim zmienności .................... PREREGISTERED jako warunkowanie
  │                                            (oś raportowania w T003)
- ├── H04 Carry / różnica stóp ..................... PROPOSED · nietestowalna przy h = 3 d na RESEARCH (ADR-028)
+ ├── H04 Carry / różnica stóp ..................... PROPOSED · nietestowalna przy h = 3 d (ADR-028, ADR-030)
  ├── H05 Cross-asset .............................. DEFERRED · brak danych
  └── H06 Kombinacja ............................... DEFERRED · bramka wejścia
 ```
@@ -127,7 +127,8 @@ Komórka k = 480 jest najsłabsza i to ona wyznacza, co T003 potrafi wykluczyć.
 | **Cecha — USTALONA (M12, ADR-026)** | Różnica stóp polityki sterujących rynkiem overnight, point-in-time z konstrukcji; źródła zweryfikowane wobec OECD. n_eff **1 547**, `FALSIFIED` osiągalne (0,92), CI z rozkładu zerowego |
 | **Moc pod H1 — ZMIERZONA (M13, ADR-027)** | `FACT`. CI z rozkładu zerowego ma sufit mocy ~0,3 (0,24 przy ρ = 0,12). Bootstrap: 0,98, ale odpadł na pokryciu pod H0 w M10. T004 **niezamrożony** |
 | **Metoda CI — ZMIERZONA (M14, ADR-028)** | `FACT`. Bootstrap × κ (κ = 1,141): pokrycie 0,950–0,965, moc przy ρ = 0,12 0,89–0,99 — ale mediana pół-CI 0,05435 > 0,05401 w AR(1)/gauss, P(`FALSIFIED` \| ρ = 0) 0,08–0,14. Nawet CI z prawdziwego SD daje P(`FALSIFIED`) ≤ 21%. T004 → `WITHDRAWN` |
-| **Następny krok** | Brak w tej fazie. Powrót wymaga innego projektu pomiaru (więcej niezależnych epizodów stóp albo inna próba), nie innej metody CI — `reports/phase1_closure.md` |
+| **Skala z mechanizmu — ZMIERZONA (M15, ADR-030)** | `FACT` + `INFERENCE`. Nawet przy dryfie ceny 2 × różnica stóp ρ ≈ **0,029** = 0,54 progu opłacalności. Zysk carry leży w odsetkach, nie w cenie — warstwa A przy h = 3 d nie może pokazać opłacalnego efektu |
+| **Następny krok** | Brak — projekt zamknięty (ADR-030, `reports/project_closure.md`). Carry jako strategia miesięczna z przychodem odsetkowym to inne pytanie, poza tym projektem |
 
 ---
 
@@ -205,3 +206,4 @@ Komórka k = 480 jest najsłabsza i to ona wyznacza, co T003 potrafi wykluczyć.
 | 2026-09-24 | H04 | bez zmiany statusu | **M12** (`20260924T212921Z-b1fcdc`) + M09B/M10 na nowej cesze: stopy polityki zweryfikowane, n_eff 1 547, CI z rozkładu zerowego (ADR-026). Pomiar NIE zestawił cechy ze zwrotem |
 | 2026-09-25 | H04 | bez zmiany statusu | **M13** (`20260924T215452Z-2744d2`, kontrola, dane syntetyczne): metoda CI z ADR-026 nie ma mocy pod H1. T004 niezamrożony (ADR-027) |
 | 2026-09-25 | H04 | bez zmiany statusu | **M14** (`20260925T174148Z-1aa5cf`, kontrola, dane syntetyczne): bootstrap × κ ma pokrycie i moc, ale `FALSIFIED` nieosiągalne (G3). **Nietestowalna przy h = 3 d na RESEARCH**; T004 wycofany przed zamrożeniem, N bez zmian (ADR-028) |
+| 2026-09-25 | H04 | bez zmiany statusu | **M15** (`20260925T200541Z-c710ff`, kontrola): efekt w cenie przewidywany przez mechanizm najwyżej 0,54 progu opłacalności. Plan szerszego koszyka wycofany, projekt zamknięty (ADR-030) |

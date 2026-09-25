@@ -1827,3 +1827,65 @@ zbyt optymistyczny.
   z przebiegu `control` na świecie syntetycznym.
 * ADR-022 pkt 1 (zamknięcie fazy 0) i obowiązek pomiaru geometrii przed
   planem pozostają bez zmian.
+
+---
+
+## ADR-030 — Bramka zerowa: wielkość efektu z mechanizmu przed pomiarem mocy; plan szerszego koszyka dla H04 wycofany; projekt zamknięty
+
+**Status:** ACCEPTED · 2026-09-25 · **Przebieg:** M15 `20260925T200541Z-c710ff`
+(`control`) · **Raport:** `reports/project_closure.md` · **Uzupełnia:**
+ADR-022 i ADR-029 (dodaje krok przed nimi) · **N bez zmian (10)**
+
+**Decyzja.** Trzy rzeczy:
+
+1. **Bramka zerowa, przed jakimkolwiek pomiarem geometrii i mocy.** Każda
+   hipoteza deklaruje wielkość efektu, jaką jej mechanizm może dać
+   w statystyce testu, i porównuje ją z progiem opłacalności. Jeżeli nawet
+   skrajny, udokumentowany wariant mechanizmu nie sięga progu, hipoteza
+   nie dostaje planu w tej warstwie. Rachunek jest `control`, zero prób.
+2. **Plan szerszego koszyka walut dla H04 (G10) — wycofany przed kodem.**
+   Podniósłby n_eff, ale nie wielkość efektu: dałby dokładniejszy pomiar
+   zera, które rachunek M15 już przewiduje.
+3. **Projekt zamknięty** z wynikiem: brak dowodów na opłacalną przewagę na
+   sześciu parach, 2016–2021, h = 3 d. Segmenty OOS 2022–2023 i 2024–2026
+   nietknięte.
+
+**Dowód (M15).** Relacja ceny z różnicą stóp, jeżeli cena dryfuje
+o `m` × różnica stóp: ρ ≈ m · SD(Δi) · h/252 / SD(zwrotu h-dniowego).
+`FACT`: SD cechy **1,034 pp** (M12), SD zwrotu 3-dniowego **0,84%**
+(średnia kwadratowa sześciu par, RESEARCH, bez cechy).
+
+| Dryf ceny | ρ przewidywane | wobec progu 0,05401 |
+|---|---|---|
+| 0,5 × różnica stóp | 0,0073 | 0,14 |
+| 1 × różnica stóp | 0,0147 | 0,27 |
+| 2 × (skrajna anomalia UIP) | **0,0293** | **0,54** |
+
+`INFERENCE` (dryf liniowy, Pearson jako przybliżenie Spearmana; margines
+~2× nie zależy od tych przybliżeń): w klasycznym ujęciu kurs jest
+błądzeniem losowym (m ≈ 0), a zysk carry leży **w odsetkach, nie w cenie**.
+Warstwa A mierzyła cenę. T004 pytał więc o coś, na co mechanizm odpowiadał
+z góry — przy h = 3 d efekt opłacalny w warstwie A nie jest możliwy.
+
+**Ósmy optymistyczny szacunek i najdroższy.** Sześć kroków kontrolnych
+(M09–M14) budowało coraz dokładniejszy przyrząd do zważenia efektu, który
+rachunek na jedną linijkę pokazywał jako za lekki. Przy każdej blokadzie
+rekomendacją było obejście, nie powrót do pytania, czy pomiar ma sens.
+Reguły projektu (prerejestracja, brak zmian po wyniku) zadziałały — żadna
+próba nie została zmarnowana — ale nie chroniły przed pracą nad pytaniem
+źle postawionym.
+
+**Alternatywy.** (a) *Szerszy koszyk (M15 w pierwotnym planie).*
+Odrzucone — pkt 2. (b) *Warstwa B jako test carry (odsetki minus marża
+swapu).* Odrzucone w tym projekcie: to jest pytanie o strategię miesięczną
+z kosztem finansowania u brokera, nie o przewidywalność ceny; ADR-002
+oddziela te warstwy, a literatura odpowiada na nie lepiej niż 6 par
+w 6 lat. (c) *Kolejna hipoteza na tych samych danych.* Odrzucone:
+CLAUDE.md — nie mnożymy hipotez, żeby uniknąć wyniku negatywnego.
+
+**Konsekwencje.**
+
+* Kolejność bramek dla każdej przyszłej hipotezy: **wielkość z mechanizmu
+  (ADR-030) → geometria cechy (ADR-022) → P(`FALSIFIED`) ≥ 0,50
+  (ADR-029) → moc pod H1 (ADR-027) → prerejestracja.**
+* H04 pozostaje `PROPOSED`; adnotacja rozszerzona o wynik M15.

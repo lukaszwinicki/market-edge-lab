@@ -13,6 +13,12 @@ Każdą liczbę sprawdzać komendą, nie brać na wiarę.
 
 ## Gdzie jesteśmy
 
+**PROJEKT ZAMKNIĘTY 2026-09-25** (ADR-030, `reports/project_closure.md`):
+brak dowodów na opłacalną przewagę na sześciu parach, 2016–2021, h = 3 d.
+M15 (`20260925T200541Z-c710ff`): mechanizm carry daje w cenie najwyżej
+ρ ≈ 0,029 — 0,54 progu opłacalności. Plan szerszego koszyka wycofany.
+Obowiązująca kolejność bramek dla przyszłych hipotez — ADR-030.
+
 **FAZA 1 (CARRY) ZAMKNIĘTA 2026-09-25** (ADR-028, `reports/phase1_closure.md`):
 **H04 nietestowalna przy h = 3 d na RESEARCH**, status `PROPOSED`, T004
 wycofany przed zamrożeniem. M14 (`20260925T174148Z-1aa5cf`): bootstrap × κ
@@ -36,7 +42,7 @@ Seria kontrolna M01–M06 zamknięta; aparatura ma sprawdzone zero (M03),
 wzmocnienie (M04), rozkład zerowy metryki głównej (M05) i zero pełnego modelu
 kosztu (M06).
 
-**Testy: 724.** **M07 zamknął H02** bez ani jednej próby — T002 zwęża się
+**Testy: 727.** **M07 zamknął H02** bez ani jednej próby — T002 zwęża się
 do samego H07. **M08A zamknął T002 przed prerejestracją** (ADR-021): H07 ma
 **726** zdarzeń na siatce primary, górna granica n_eff **843**, a `FALSIFIED`
 wymaga **1 317**. N bez zmian.
@@ -154,6 +160,7 @@ założeniem niekonserwatywnym, wyglądającym na ostrożne.
 | **ADR-015** | Kryteria falsyfikacji **wracają na warstwę A** — to przywrócenie ADR-003, nie przebudowa. Warstwa B = wycena, nie test. Siatka **3 komórki**, h=10d usunięty. N: 7 → 10 |
 | **ADR-016** | Marża swapu **nie wchodzi** do `CostModel` — jest osią, nie punktem. Pełny koszt składa się na wyniku symulacji; M06 potwierdził identyczność co do bitu. Warunek 6 spełniony |
 | **ADR-017** | DSR **wreszcie liczony** — `dsr.py` nie był importowany przez nic, mimo że ADR-004 prowadził licznik właśnie dla niego. `V[SR]` jako nawias. Dla T003 **diagnostyka**, nie kryterium; każda przyszła prerejestracja deklaruje deflację przed zamrożeniem |
+| **ADR-030** | **Bramka zerowa**: wielkość efektu z mechanizmu przed pomiarem mocy. Plan szerszego koszyka wycofany. **Projekt zamknięty** |
 | **ADR-029** | Bramka przed planem trialu: **P(`FALSIFIED` \| ρ = 0) ≥ 0,50** z prawdziwego SD i z estymatorem trialu (wiążące); przy ρ_be 0,05401 → **n_eff ≥ 2 379**. Wstecz: 2 z 3 komórek T003 by nie przeszły — wynik T003 bez zmian |
 | **ADR-028** | **H04 nietestowalna przy h = 3 d na RESEARCH**, T004 → `WITHDRAWN`, faza 1 zamknięta. M14: κ-bootstrap ma pokrycie i moc, `FALSIFIED` nieosiągalne. N bez zmian |
 | **ADR-027** | **T004 niezamrożony** — CI z rozkładu zerowego ma sufit mocy ~0,3 (M13). Metoda CI do ponownego rozstrzygnięcia: pokrycie pod H0 **i** moc pod H1 |
@@ -183,7 +190,8 @@ założeniem niekonserwatywnym, wyglądającym na ostrożne.
 | ~~16~~ | ~~Decyzje przed zamrożeniem T004~~ | Podjęte (h = 3 d, Šidák N = 11, przychód carry w B), ale **M13 zablokował zamrożenie** (ADR-027) |
 | ~~17~~ | ~~**Metoda CI dla cechy trwałej**~~ | **M14 BLOKUJE** 2026-09-25 — G1, G2 ✓, G3 ✗. Opcja (b): H04 nietestowalna, faza 1 zamknięta (ADR-028). N bez zmian |
 | ~~18~~ | ~~**Bramka przed planem trialu**~~ | **ADR-029** 2026-09-25 — P(`FALSIFIED` \| ρ = 0) ≥ 0,50, n_eff ≥ 2 379 |
-| **19** | **M15 — czy carry na szerszym koszyku przechodzi bramkę ADR-029** ← **TU JESTEŚMY** | Plan do akceptacji. Zero prób, zero ticków. Inaczej: projekt wstrzymany z wynikiem „brak dowodów na przewagę na tej próbie” |
+| ~~19~~ | ~~Plan szerszego koszyka dla H04~~ | **WYCOFANY** przed kodem — podniósłby n_eff, nie wielkość efektu (ADR-030) |
+| ~~20~~ | ~~**M15 — skala efektu z mechanizmu**~~ | **ROZSTRZYGA** 2026-09-25 — ρ ≤ 0,029 = 0,54 progu. **Projekt zamknięty** (ADR-030) |
 
 ### Co T003 zmienia w planie
 

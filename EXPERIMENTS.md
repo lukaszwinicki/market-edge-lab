@@ -31,6 +31,7 @@ Uruchomionych prób strategii w tym projekcie: **3**.
 | M13 | — | `CLOSED` | **BLOKUJE** — CI z rozkładu zerowego ma sufit mocy ~0,3 (moc 0,24 przy ρ = 0,12); bootstrap 0,98 | ADR-027: T004 niezamrożony |
 | M14 | — | `CLOSED` | **BLOKUJE** — bootstrap × κ (1,141): pokrycie 0,950–0,965 i moc 0,89–0,99 przy ρ = 0,12, ale pół-CI 0,05435 > 0,05401 w AR(1)/gauss; P(`FALSIFIED` \| ρ = 0) ≤ 0,14 | ADR-028: H04 nietestowalna przy h = 3 d |
 | T004 | H04 | `WITHDRAWN` | **nieuruchomiony, niezamrożony** — `FALSIFIED` praktycznie nieosiągalne przy każdej zmierzonej metodzie CI (M13, M14) | ADR-028 |
+| M15 | — | `CLOSED` | **ROZSTRZYGA** — mechanizm carry daje w cenie przy h = 3 d najwyżej ρ ≈ 0,029 (0,54 progu opłacalności) | ADR-030: projekt zamknięty |
 | T002 | H07 | `WITHDRAWN` | **nieuruchomiony, bez prerejestracji** — `FALSIFIED` nieosiągalne przy każdym modelu zależności (M08A) | ADR-021 |
 | T003 | H01 | `CLOSED` | **`NOT_SUPPORTED`** — relacja nieodróżnialna od zera we wszystkich 3 komórkach; górne ograniczenie **51,03%** trafności | H01 → `NOT_SUPPORTED`; ADR-019 |
 
@@ -711,6 +712,31 @@ P(`FALSIFIED` \| ρ = 0) 0,08–0,14; z CI z prawdziwego SD ≤ 0,21.
 
 Nie dotknął danych prawdziwych. Nie zmierzył innych horyzontów ani prób —
 negatywny wynik dotyczy wyłącznie h = 3 d na RESEARCH 2016–2021.
+
+---
+
+## M15 — Skala efektu przewidywana przez mechanizm carry · `CLOSED` · **ROZSTRZYGA**
+
+**Cel.** Rachunek, który powinien był poprzedzić M09: ile waży efekt,
+który przyrząd M09–M14 miał zważyć? Cecha NIE jest zestawiana ze zwrotem.
+Szczegóły: **ADR-030**.
+
+### Wynik (2026-09-25) · `20260925T200541Z-c710ff` · `control`, N bez zmian
+
+SD cechy 1,034 pp (M12), SD zwrotu 3-dniowego 0,84% (sześć par, RESEARCH).
+
+| Dryf ceny | ρ | / próg 0,05401 |
+|---|---|---|
+| 0,5 × różnica stóp | 0,0073 | 0,14 |
+| 1 × | 0,0147 | 0,27 |
+| 2 × (skrajna anomalia UIP) | 0,0293 | 0,54 |
+
+Reguła przed przebiegiem: ρ przy 2 × musi sięgać progu. **Nie sięga.**
+
+### Czego M15 nie zrobił
+
+Nie zmierzył relacji cechy z ceną — tylko górną granicę tego, co mechanizm
+może dać. Nie dotyczy przychodu odsetkowego (warstwa B).
 
 ---
 
