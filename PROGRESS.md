@@ -154,6 +154,7 @@ założeniem niekonserwatywnym, wyglądającym na ostrożne.
 | **ADR-015** | Kryteria falsyfikacji **wracają na warstwę A** — to przywrócenie ADR-003, nie przebudowa. Warstwa B = wycena, nie test. Siatka **3 komórki**, h=10d usunięty. N: 7 → 10 |
 | **ADR-016** | Marża swapu **nie wchodzi** do `CostModel` — jest osią, nie punktem. Pełny koszt składa się na wyniku symulacji; M06 potwierdził identyczność co do bitu. Warunek 6 spełniony |
 | **ADR-017** | DSR **wreszcie liczony** — `dsr.py` nie był importowany przez nic, mimo że ADR-004 prowadził licznik właśnie dla niego. `V[SR]` jako nawias. Dla T003 **diagnostyka**, nie kryterium; każda przyszła prerejestracja deklaruje deflację przed zamrożeniem |
+| **ADR-029** | Bramka przed planem trialu: **P(`FALSIFIED` \| ρ = 0) ≥ 0,50** z prawdziwego SD i z estymatorem trialu (wiążące); przy ρ_be 0,05401 → **n_eff ≥ 2 379**. Wstecz: 2 z 3 komórek T003 by nie przeszły — wynik T003 bez zmian |
 | **ADR-028** | **H04 nietestowalna przy h = 3 d na RESEARCH**, T004 → `WITHDRAWN`, faza 1 zamknięta. M14: κ-bootstrap ma pokrycie i moc, `FALSIFIED` nieosiągalne. N bez zmian |
 | **ADR-027** | **T004 niezamrożony** — CI z rozkładu zerowego ma sufit mocy ~0,3 (M13). Metoda CI do ponownego rozstrzygnięcia: pokrycie pod H0 **i** moc pod H1 |
 | **ADR-026** | Cecha H04 = stopy polityki (zweryfikowane). **CI T004 z rozkładu zerowego** — reguła M10 odrzuciła bootstrap (pokrycie 0,85). n_eff 1 547; ~41% ryzyka, że `FALSIFIED` będzie nieosiągalne w samym przebiegu |
@@ -181,7 +182,8 @@ założeniem niekonserwatywnym, wyglądającym na ostrożne.
 | ~~15a~~ | ~~**Źródło stóp**~~ | **(b) WYKONANE** 2026-09-24 — stopy polityki, M12 + M09B + M10: n_eff 1 547, CI z rozkładu zerowego (ADR-026) |
 | ~~16~~ | ~~Decyzje przed zamrożeniem T004~~ | Podjęte (h = 3 d, Šidák N = 11, przychód carry w B), ale **M13 zablokował zamrożenie** (ADR-027) |
 | ~~17~~ | ~~**Metoda CI dla cechy trwałej**~~ | **M14 BLOKUJE** 2026-09-25 — G1, G2 ✓, G3 ✗. Opcja (b): H04 nietestowalna, faza 1 zamknięta (ADR-028). N bez zmian |
-| **18** | **Decyzja o dalszym kierunku** ← **TU JESTEŚMY** | Otwarte: (1) czy bramka ADR-022 ma wymagać P(`FALSIFIED` \| ρ = 0) ≥ próg zamiast ilorazu < 1; (2) czy projekt idzie dalej — `reports/phase1_closure.md`, „Jeżeli H04 ma wrócić” |
+| ~~18~~ | ~~**Bramka przed planem trialu**~~ | **ADR-029** 2026-09-25 — P(`FALSIFIED` \| ρ = 0) ≥ 0,50, n_eff ≥ 2 379 |
+| **19** | **M15 — czy carry na szerszym koszyku przechodzi bramkę ADR-029** ← **TU JESTEŚMY** | Plan do akceptacji. Zero prób, zero ticków. Inaczej: projekt wstrzymany z wynikiem „brak dowodów na przewagę na tej próbie” |
 
 ### Co T003 zmienia w planie
 

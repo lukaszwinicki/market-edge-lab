@@ -1769,3 +1769,61 @@ i mają takie pozostać.
 * Aparatura z M14 (`scripts/m14_kappa_bootstrap.py`) jest ogólna dla cechy
   trwałej: κ-bootstrap ma poprawne pokrycie i moc ~0,9 przy ρ = 0,12.
   Problemem H04 jest geometria, nie przyrząd.
+
+---
+
+## ADR-029 — Bramka przed planem trialu: P(`FALSIFIED` | ρ = 0) ≥ 0,50 zamiast ilorazu pół-CI / próg < 1
+
+**Status:** ACCEPTED · 2026-09-25 · **Zmienia:** ADR-022 pkt 2 (kryterium
+osiągalności `FALSIFIED`) · **Wykonuje:** propozycję z ADR-028 · **N bez
+zmian (10)**
+
+**Decyzja.** Hipoteza dostaje prerejestrację tylko wtedy, gdy prawdopodobieństwo
+`FALSIFIED` przy braku efektu wynosi **co najmniej 0,50**, liczone dwa razy
+na świecie syntetycznym:
+
+1. **z prawdziwego SD** statystyki (górna granica, bez szumu estymatora):
+   P = 2·Φ(ρ_be / SD − 1,96) − 1;
+2. **z estymatorem SE, którego użyje trial** — ta liczba jest wiążąca
+   (w M14 szum estymatora obniżył 9–21% do 8–14%).
+
+Przy ρ_be = 0,05401 warunek (1) oznacza prawdziwe SD ≤ 0,02050, czyli
+**n_eff ≥ 2 379**. Iloraz z ADR-022 zostaje raportowany, ale nie jest już
+kryterium.
+
+**Powód.** Iloraz < 1 mówi, że `FALSIFIED` jest *możliwe* przy ρ̂ dokładnie
+zero, a nie że jest *prawdopodobne*. H04 miała iloraz 0,92, przeszła
+bramkę i dopiero po czterech krokach kontrolnych (M10–M14) okazało się, że
+T004 dałby pod H0 „nie wiadomo” w 86–92% przypadków (M14, ADR-028). Próg 0,50
+jest symetryczny z bramką mocy pod H1 z M13/M14 (moc ≥ 0,50 przy ρ = 0,12):
+test musi mieć rozsądną szansę rozstrzygnąć w obie strony.
+
+**Dowód — skutek wstecz (`FACT`, rachunek z prawdziwego SD).**
+
+| Przypadek | n_eff | Iloraz ADR-022 | P(`FALSIFIED` \| ρ = 0) | Nowa bramka |
+|---|---|---|---|---|
+| H04 (M12, ADR-026) | 1 547 | 0,92 | 0,13 | ✗ |
+| T003, k = 480 (M05) | 1 902 | 0,83 | 0,31 | ✗ |
+| T003, k = 120 (M05) | 2 302 | 0,76 | 0,47 | ✗ |
+| T003, k = 24 (M05) | 5 150 | 0,51 | 0,95 | ✓ |
+
+**Dwie z trzech komórek T003 nie przeszłyby nowej bramki.** Wyniku T003
+to nie zmienia: H01 dostała `NOT_SUPPORTED` z górnym ograniczeniem 51,03%
+poniżej progu opłacalności, a to rozstrzyga niezależnie od `FALSIFIED`.
+Zapisujemy to jawnie, żeby reguła nie wyglądała na dobraną pod przeszłość.
+
+**Alternatywy.** (a) *Próg 0,80, jak konwencjonalna moc testu
+równoważności.* Odrzucone jako minimum: wymaga n_eff ≥ 3 602; bramka
+dopuszczenia do planu to minimum, nie cel jakości. Prerejestracja może
+deklarować więcej. (b) *Zostawić iloraz.* Odrzucone: ADR-028 pokazał, że
+przepuszcza test niemal pewnie nierozstrzygający. (c) *Liczyć tylko
+z prawdziwego SD.* Odrzucone: to jest dokładnie wzorzec „szacunek
+z optymistycznego przyrządu”, który w projekcie siedem razy okazał się
+zbyt optymistyczny.
+
+**Konsekwencje.**
+
+* Każda przyszła prerejestracja deklaruje oba prawdopodobieństwa
+  z przebiegu `control` na świecie syntetycznym.
+* ADR-022 pkt 1 (zamknięcie fazy 0) i obowiązek pomiaru geometrii przed
+  planem pozostają bez zmian.
