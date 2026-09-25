@@ -35,7 +35,7 @@ Historia statusów jest dopisywana, nigdy nadpisywana.
  │
  ├── H03 Reżim zmienności .................... PREREGISTERED jako warunkowanie
  │                                            (oś raportowania w T003)
- ├── H04 Carry / różnica stóp ..................... PROPOSED · blokada danych
+ ├── H04 Carry / różnica stóp ..................... PROPOSED · nietestowalna przy h = 3 d na RESEARCH (ADR-028)
  ├── H05 Cross-asset .............................. DEFERRED · brak danych
  └── H06 Kombinacja ............................... DEFERRED · bramka wejścia
 ```
@@ -113,7 +113,7 @@ Komórka k = 480 jest najsłabsza i to ona wyznacza, co T003 potrafi wykluczyć.
 | Pole | Treść |
 |---|---|
 | **ID** | H04 |
-| **Status** | `PROPOSED` — zablokowana dostępnością danych |
+| **Status** | `PROPOSED` — **nietestowalna przy h = 3 d na RESEARCH** (ADR-028). Cecha nigdy nie zestawiona ze zwrotem |
 | **Typ** | Confirmatory |
 | **Mechanizm** | **Naruszenie parytetu stóp procentowych (UIP).** Waluty o wyższej stopie nie deprecjonują się tyle, ile implikuje różnica stóp; premia jest wynagrodzeniem za ryzyko gwałtownego odwrócenia. Najmocniejszy prior ekonomiczny w całym rejestrze |
 | **Predykcja** | Różnica rentowności 2-letnich ma dodatnią relację z przyszłym zwrotem pary |
@@ -126,7 +126,8 @@ Komórka k = 480 jest najsłabsza i to ona wyznacza, co T003 potrafi wykluczyć.
 | **Dane PIT — BLOKADA (M11, ADR-025)** | `FACT`. Seria OECD EUR nie istniała point-in-time w 2016–2017 (vintage kończą się na 2013-12 do 2018-01-08). Bieżący vintage był dla EUR look-aheadem |
 | **Cecha — USTALONA (M12, ADR-026)** | Różnica stóp polityki sterujących rynkiem overnight, point-in-time z konstrukcji; źródła zweryfikowane wobec OECD. n_eff **1 547**, `FALSIFIED` osiągalne (0,92), CI z rozkładu zerowego |
 | **Moc pod H1 — ZMIERZONA (M13, ADR-027)** | `FACT`. CI z rozkładu zerowego ma sufit mocy ~0,3 (0,24 przy ρ = 0,12). Bootstrap: 0,98, ale odpadł na pokryciu pod H0 w M10. T004 **niezamrożony** |
-| **Następny krok** | Decyzja ADR-027: (a) bootstrap skalibrowany współczynnikiem κ z nowego pomiaru M14 (rekomendacja) albo (b) zamknięcie H04 w tej fazie |
+| **Metoda CI — ZMIERZONA (M14, ADR-028)** | `FACT`. Bootstrap × κ (κ = 1,141): pokrycie 0,950–0,965, moc przy ρ = 0,12 0,89–0,99 — ale mediana pół-CI 0,05435 > 0,05401 w AR(1)/gauss, P(`FALSIFIED` \| ρ = 0) 0,08–0,14. Nawet CI z prawdziwego SD daje P(`FALSIFIED`) ≤ 21%. T004 → `WITHDRAWN` |
+| **Następny krok** | Brak w tej fazie. Powrót wymaga innego projektu pomiaru (więcej niezależnych epizodów stóp albo inna próba), nie innej metody CI — `reports/phase1_closure.md` |
 
 ---
 
@@ -203,3 +204,4 @@ Komórka k = 480 jest najsłabsza i to ona wyznacza, co T003 potrafi wykluczyć.
 | 2026-09-24 | H04 | bez zmiany statusu | **M11** (`20260924T211756Z-2329f2`, kontrola): EUR bez wartości point-in-time w 2016–2017. Prerejestracja T004 wstrzymana do wyboru źródła stóp (ADR-025) |
 | 2026-09-24 | H04 | bez zmiany statusu | **M12** (`20260924T212921Z-b1fcdc`) + M09B/M10 na nowej cesze: stopy polityki zweryfikowane, n_eff 1 547, CI z rozkładu zerowego (ADR-026). Pomiar NIE zestawił cechy ze zwrotem |
 | 2026-09-25 | H04 | bez zmiany statusu | **M13** (`20260924T215452Z-2744d2`, kontrola, dane syntetyczne): metoda CI z ADR-026 nie ma mocy pod H1. T004 niezamrożony (ADR-027) |
+| 2026-09-25 | H04 | bez zmiany statusu | **M14** (`20260925T174148Z-1aa5cf`, kontrola, dane syntetyczne): bootstrap × κ ma pokrycie i moc, ale `FALSIFIED` nieosiągalne (G3). **Nietestowalna przy h = 3 d na RESEARCH**; T004 wycofany przed zamrożeniem, N bez zmian (ADR-028) |

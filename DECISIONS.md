@@ -1690,3 +1690,82 @@ Rekomendacja: **(a)**.
 * N = 10 bez zmian. Nic nie zostało zestawione z prawdziwym zwrotem.
 * Reguła ogólna: każda przyszła metoda CI dla cechy trwałej przechodzi
   pomiar **mocy pod H1** (wzór M13), nie tylko pokrycia pod H0 (M10).
+
+---
+
+## ADR-028 — H04 nietestowalna przy h = 3 d na RESEARCH: bootstrap skalibrowany κ ma pokrycie i moc, ale nie zostawia osiągalnego `FALSIFIED`
+
+**Status:** ACCEPTED · 2026-09-25 · **Wykonuje:** ADR-027 — pomiar opcji (a),
+a po jego wyniku opcja (b) · **Przebieg:** M14 `20260925T174148Z-1aa5cf`
+(`control`, wyłącznie dane syntetyczne, 5 260 s) · **Raport:**
+`reports/phase1_closure.md` · **N bez zmian (10)**
+
+**Decyzja.**
+
+1. **T004 → `WITHDRAWN`** przed zamrożeniem, tak jak T001 i T002. Nigdy
+   nieuruchomiony, N bez zmian. Szkic `configs/t004_carry.yaml` i runner
+   zostają w repozytorium jako zapis, z hashem `PENDING`.
+2. **H04 zostaje `PROPOSED`** z adnotacją „nietestowalna przy h = 3 d na
+   RESEARCH”. To nie jest wynik o carry, tylko o przyrządzie: przy tej
+   cesze (kilka niezależnych epizodów stóp w sześć lat) i tym horyzoncie
+   żadna z trzech zmierzonych metod CI nie daje jednocześnie pokrycia,
+   mocy i osiągalnego `FALSIFIED`.
+3. **Faza 1 (carry) zamknięta**, raport `reports/phase1_closure.md`.
+
+**Reguła M14 — zapisana w kodzie przed przebiegiem** (zatwierdzona
+2026-09-25): κ z 400 światów na wariant (strumień kalibracyjny), κ = max(1,
+max_v κ_v); walidacja na światach nowych (rozłączne strumienie seeda):
+G1 pokrycie ≥ 0,90, G2 moc przy ρ = 0,12 ≥ 0,50, G3 1,96·κ·mediana(SE_boot)
+< 0,05401 — każda w **każdym** z 4 wariantów; STOP przy ≥ 9 fałszywych
+`SUPPORTED` na 1 600 światów pod H0.
+
+**Dowód (`FACT`, M14).** κ = **1,141** (warianty: 1,079 · 1,141 · 0,998 ·
+1,026 — najgorszy AR(1)/stochvol).
+
+| Wariant | Pokrycie z κ (surowy boot) | Pół-CI, mediana | P(`FALSIFIED` \| ρ = 0) | Moc przy ρ = 0,12 |
+|---|---|---|---|---|
+| AR(1) / gauss | 0,965 (0,935) | **0,05435** ✗ | 0,10 | 0,91 |
+| AR(1) / stochvol | 0,950 (0,912) | 0,05277 | 0,08 | 0,99 |
+| RW / gauss | 0,963 (0,943) | 0,05373 | 0,09 | 0,89 |
+| RW / stochvol | 0,953 (0,930) | 0,05276 | 0,14 | 0,96 |
+
+G1 **przechodzi**, G2 **przechodzi** (empiryczne MDE80 w najgorszym
+wariancie: ρ = 0,12, czyli 53,83% trafności; przy progu opłacalności
+51,72% moc 0,19–0,39). Hamulec rozmiaru: 3 fałszywe `SUPPORTED` na 1 600
+(nominalnie ~3,7) — nie zadziałał. **G3 nie przechodzi** w AR(1)/gauss.
+Werdykt reguły: **M14 nie przechodzi.**
+
+**Dlaczego to nie jest wynik „o włos” (`INFERENCE`, sprawdzone rachunkiem).**
+G3 odpadł o 0,6%, ale margines nie ma znaczenia. Nawet przyrząd idealny —
+CI z **prawdziwego** SD, bez szumu estymatora — daje przy prawdziwym SD
+0,0243–0,0261 prawdopodobieństwo `FALSIFIED` pod ρ = 0 równe zaledwie
+**9–21%**: pół-CI zjada 88–95% progu, więc `FALSIFIED` wymaga |ρ̂| < ~0,003–0,006.
+Pod H0 T004 skończyłby się `NOT_SUPPORTED` w ~80–90% przypadków
+niezależnie od metody CI. Iloraz „pół-CI / próg < 1” z ADR-022 mówi, że
+`FALSIFIED` jest *możliwe* przy ρ̂ = 0, nie że jest *prawdopodobne*.
+To jest siódmy optymistyczny szacunek w projekcie — tym razem wbudowany
+w samą regułę bramki, nie w liczbę.
+
+**Alternatywy.**
+(a) *Uznać G3 za spełniony, bo 0,05435 wobec 0,05401 to szum.* Odrzucone:
+reguła bez marginesu była zapisana przed przebiegiem, a przyrząd idealny
+i tak daje P(`FALSIFIED`) ≤ 21%. (b) *κ per wariant zamiast maksimum.*
+Odrzucone: zmiana reguły po wyniku; nie wiemy, który wariant jest
+prawdziwy. (c) *Zamrozić T004 z wynikiem możliwym tylko `SUPPORTED` /
+`NOT_SUPPORTED`.* Odrzucone: przy priorze na brak przewagi to próba (N →
+11) kupiona za prawie pewne „nie wiadomo” — narusza ADR-022. (d) *Dłuższy
+horyzont albo inna próba.* Nie teraz: dłuższy h zmniejsza n_eff (M05:
+h = 10 d traci `FALSIFIED`), a segmenty OOS i 2024–2026 są nietknięte
+i mają takie pozostać.
+
+**Konsekwencje.**
+
+* N = 10 bez zmian. Cecha H04 nie została zestawiona z żadnym zwrotem —
+  H04 pozostaje nietknięta i może wrócić z innym projektem pomiaru.
+* **Do decyzji (nie przyjęte tym ADR):** zastąpić w bramce ADR-022 iloraz
+  „pół-CI / próg < 1” wymaganiem P(`FALSIFIED` \| ρ = 0) ≥ ustalony próg,
+  liczonym z prawdziwego SD. Przy obecnej regule ta sama pułapka
+  przepuściłaby każdą cechę o ilorazie 0,9–1,0.
+* Aparatura z M14 (`scripts/m14_kappa_bootstrap.py`) jest ogólna dla cechy
+  trwałej: κ-bootstrap ma poprawne pokrycie i moc ~0,9 przy ρ = 0,12.
+  Problemem H04 jest geometria, nie przyrząd.

@@ -29,6 +29,8 @@ Uruchomionych prób strategii w tym projekcie: **3**.
 | M11 | — | `CLOSED` | **BLOKUJE** — EUR nie ma wartości point-in-time w 2016–2017 (seria OECD zamrożona na 2013-12 do stycznia 2018); 527 dni bez cechy | ADR-025: T004 wstrzymany do wyboru źródła stóp |
 | M12 | — | `CLOSED` | **PRZECHODZI** — stopy polityki 6 walut zweryfikowane wobec OECD (0 podejrzanych miesięcy); M09B i M10 powtórzone: n_eff 1 547, `FALSIFIED` osiągalne (0,92); reguła M10 wskazuje CI z rozkładu zerowego | ADR-026 |
 | M13 | — | `CLOSED` | **BLOKUJE** — CI z rozkładu zerowego ma sufit mocy ~0,3 (moc 0,24 przy ρ = 0,12); bootstrap 0,98 | ADR-027: T004 niezamrożony |
+| M14 | — | `CLOSED` | **BLOKUJE** — bootstrap × κ (1,141): pokrycie 0,950–0,965 i moc 0,89–0,99 przy ρ = 0,12, ale pół-CI 0,05435 > 0,05401 w AR(1)/gauss; P(`FALSIFIED` \| ρ = 0) ≤ 0,14 | ADR-028: H04 nietestowalna przy h = 3 d |
+| T004 | H04 | `WITHDRAWN` | **nieuruchomiony, niezamrożony** — `FALSIFIED` praktycznie nieosiągalne przy każdej zmierzonej metodzie CI (M13, M14) | ADR-028 |
 | T002 | H07 | `WITHDRAWN` | **nieuruchomiony, bez prerejestracji** — `FALSIFIED` nieosiągalne przy każdym modelu zależności (M08A) | ADR-021 |
 | T003 | H01 | `CLOSED` | **`NOT_SUPPORTED`** — relacja nieodróżnialna od zera we wszystkich 3 komórkach; górne ograniczenie **51,03%** trafności | H01 → `NOT_SUPPORTED`; ADR-019 |
 
@@ -677,6 +679,38 @@ z efektem — test nasyca się niezależnie od siły relacji.
 
 Nie dotknął danych prawdziwych. Nie wybrał nowej metody CI — to decyzja
 (ADR-027).
+
+---
+
+## M14 — Bootstrap skalibrowany współczynnikiem κ · `CLOSED` · **BLOKUJE**
+
+**Cel.** Wykonać ADR-027 (a): czy bootstrap z SE × κ, gdzie κ dobrane
+na jednym zbiorze światów, ma na drugim, niezależnym jednocześnie pokrycie
+pod H0, moc pod H1 i osiągalne `FALSIFIED`? **Wyłącznie dane syntetyczne**,
+świat i cecha jak w M10, efekt zasiany jak w M13. Reguła jako stałe
+w `scripts/m14_kappa_bootstrap.py`, zatwierdzona przed kodem. Szczegóły:
+**ADR-028**.
+
+### Wynik (2026-09-25) · `20260925T174148Z-1aa5cf` · `control`, N bez zmian
+
+κ = **1,141** (najgorszy wariant AR(1)/stochvol). Walidacja na nowych
+światach: 400 pod H0 i 150 na punkt ρ pod H1, na wariant.
+
+| Bramka | Wynik | |
+|---|---|---|
+| G1 pokrycie ≥ 0,90 | 0,950–0,965 | ✓ |
+| G2 moc przy ρ = 0,12 ≥ 0,50 | 0,89–0,99 | ✓ |
+| G3 1,96·κ·mediana(SE_boot) < 0,05401 | **0,05435** w AR(1)/gauss | ✗ |
+| STOP ≥ 9 fałszywych `SUPPORTED` | 3 na 1 600 | nie zadziałał |
+
+Moc w najgorszym wariancie: 0,19 przy ρ = 0,054 (próg opłacalności),
+0,43 przy 0,08, 0,89 przy 0,12 — empiryczne MDE80 = 53,83% trafności.
+P(`FALSIFIED` \| ρ = 0) 0,08–0,14; z CI z prawdziwego SD ≤ 0,21.
+
+### Czego M14 nie zrobił
+
+Nie dotknął danych prawdziwych. Nie zmierzył innych horyzontów ani prób —
+negatywny wynik dotyczy wyłącznie h = 3 d na RESEARCH 2016–2021.
 
 ---
 

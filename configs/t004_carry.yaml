@@ -1,8 +1,10 @@
 # t004_carry.yaml — PREREJESTRACJA T004 (H04, carry)
 #
-# STATUS: NIEZAMROŻONA (ADR-027). M13 wykazał, że metoda CI z sekcji
-# layer_a.ci ma sufit mocy ~0,3 — test nie wykrywa nawet efektu 56%.
-# Wszystkie sekcje `frozen: false`; runner odmawia startu (hash PENDING).
+# STATUS: WYCOFANA, NIGDY NIEZAMROŻONA (ADR-028). M13: CI z rozkładu
+# zerowego ma sufit mocy ~0,3. M14: bootstrap × κ ma pokrycie i moc, ale
+# FALSIFIED nie jest osiągalne (P ≤ 0,14 pod ρ = 0). H04 nietestowalna przy
+# h = 3 d na RESEARCH. Plik zostaje jako zapis; runner odmawia startu
+# (hash PENDING). Liczby w sekcjach niżej są stanem szkicu sprzed M14.
 #
 # Dziedziczy `base.yaml`. Wszystko, co tutaj stoi, jest ZADEKLAROWANE PRZED
 # uruchomieniem. Zmiana czegokolwiek po zobaczeniu wyniku to NOWY eksperyment

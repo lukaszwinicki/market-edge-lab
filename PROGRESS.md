@@ -13,6 +13,15 @@ Każdą liczbę sprawdzać komendą, nie brać na wiarę.
 
 ## Gdzie jesteśmy
 
+**FAZA 1 (CARRY) ZAMKNIĘTA 2026-09-25** (ADR-028, `reports/phase1_closure.md`):
+**H04 nietestowalna przy h = 3 d na RESEARCH**, status `PROPOSED`, T004
+wycofany przed zamrożeniem. M14 (`20260925T174148Z-1aa5cf`): bootstrap × κ
+(1,141) ma pokrycie 0,950–0,965 i moc 0,89–0,99 przy ρ = 0,12, ale mediana
+pół-CI 0,05435 > 0,05401 w AR(1)/gauss. Nawet CI z prawdziwego SD daje
+P(`FALSIFIED` | ρ = 0) tylko 9–21% — bramka ADR-022 (iloraz < 1) jest za
+słaba; propozycja zmiany do decyzji w ADR-028. **N = 10 bez zmian.**
+**Rejestr nie ma hipotezy gotowej do trialu.**
+
 **PIERWSZY WYNIK NA HIPOTEZIE JEST.** T003 zamknięty 2026-09-24
 (`20260924T150658Z-8daa11`, 355 s): **H01 → `NOT_SUPPORTED`**.
 
@@ -27,7 +36,7 @@ Seria kontrolna M01–M06 zamknięta; aparatura ma sprawdzone zero (M03),
 wzmocnienie (M04), rozkład zerowy metryki głównej (M05) i zero pełnego modelu
 kosztu (M06).
 
-**Testy: 695.** **M07 zamknął H02** bez ani jednej próby — T002 zwęża się
+**Testy: 724.** **M07 zamknął H02** bez ani jednej próby — T002 zwęża się
 do samego H07. **M08A zamknął T002 przed prerejestracją** (ADR-021): H07 ma
 **726** zdarzeń na siatce primary, górna granica n_eff **843**, a `FALSIFIED`
 wymaga **1 317**. N bez zmian.
@@ -145,6 +154,7 @@ założeniem niekonserwatywnym, wyglądającym na ostrożne.
 | **ADR-015** | Kryteria falsyfikacji **wracają na warstwę A** — to przywrócenie ADR-003, nie przebudowa. Warstwa B = wycena, nie test. Siatka **3 komórki**, h=10d usunięty. N: 7 → 10 |
 | **ADR-016** | Marża swapu **nie wchodzi** do `CostModel` — jest osią, nie punktem. Pełny koszt składa się na wyniku symulacji; M06 potwierdził identyczność co do bitu. Warunek 6 spełniony |
 | **ADR-017** | DSR **wreszcie liczony** — `dsr.py` nie był importowany przez nic, mimo że ADR-004 prowadził licznik właśnie dla niego. `V[SR]` jako nawias. Dla T003 **diagnostyka**, nie kryterium; każda przyszła prerejestracja deklaruje deflację przed zamrożeniem |
+| **ADR-028** | **H04 nietestowalna przy h = 3 d na RESEARCH**, T004 → `WITHDRAWN`, faza 1 zamknięta. M14: κ-bootstrap ma pokrycie i moc, `FALSIFIED` nieosiągalne. N bez zmian |
 | **ADR-027** | **T004 niezamrożony** — CI z rozkładu zerowego ma sufit mocy ~0,3 (M13). Metoda CI do ponownego rozstrzygnięcia: pokrycie pod H0 **i** moc pod H1 |
 | **ADR-026** | Cecha H04 = stopy polityki (zweryfikowane). **CI T004 z rozkładu zerowego** — reguła M10 odrzuciła bootstrap (pokrycie 0,85). n_eff 1 547; ~41% ryzyka, że `FALSIFIED` będzie nieosiągalne w samym przebiegu |
 | **ADR-025** | EUR nie istniał point-in-time w 2016–2017 w serii OECD. **T004 wstrzymany** do wyboru źródła stóp; rekomendacja: dzienne stopy polityki pieniężnej |
@@ -170,7 +180,8 @@ założeniem niekonserwatywnym, wyglądającym na ostrożne.
 | ~~15~~ | ~~**Dane point-in-time z ALFRED + M11**~~ | **BLOKUJE** 2026-09-24 — EUR bez PIT w 2016–2017 (ADR-025) |
 | ~~15a~~ | ~~**Źródło stóp**~~ | **(b) WYKONANE** 2026-09-24 — stopy polityki, M12 + M09B + M10: n_eff 1 547, CI z rozkładu zerowego (ADR-026) |
 | ~~16~~ | ~~Decyzje przed zamrożeniem T004~~ | Podjęte (h = 3 d, Šidák N = 11, przychód carry w B), ale **M13 zablokował zamrożenie** (ADR-027) |
-| **17** | **Metoda CI dla cechy trwałej** ← **TU JESTEŚMY** | ADR-027: (a) bootstrap skalibrowany κ — M14 na nowych światach, pokrycie I moc; (b) zamknąć H04. Zero prób |
+| ~~17~~ | ~~**Metoda CI dla cechy trwałej**~~ | **M14 BLOKUJE** 2026-09-25 — G1, G2 ✓, G3 ✗. Opcja (b): H04 nietestowalna, faza 1 zamknięta (ADR-028). N bez zmian |
+| **18** | **Decyzja o dalszym kierunku** ← **TU JESTEŚMY** | Otwarte: (1) czy bramka ADR-022 ma wymagać P(`FALSIFIED` \| ρ = 0) ≥ próg zamiast ilorazu < 1; (2) czy projekt idzie dalej — `reports/phase1_closure.md`, „Jeżeli H04 ma wrócić” |
 
 ### Co T003 zmienia w planie
 
